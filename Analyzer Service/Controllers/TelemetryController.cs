@@ -9,9 +9,9 @@ namespace Analyzer_Service.Controllers
     [Route("[controller]")]
     public class TelemetryController : ControllerBase
     {
-        private readonly TelemetryMongo _telemetryService;
+        private readonly FlightTelemetryMongoProxy _telemetryService;
 
-        public TelemetryController(TelemetryMongo telemetryService)
+        public TelemetryController(FlightTelemetryMongoProxy telemetryService)
         {
             _telemetryService = telemetryService;
         }
@@ -19,7 +19,7 @@ namespace Analyzer_Service.Controllers
         [HttpGet("fields/{masterIndex}")]
         public async Task<IActionResult> GetFieldsByMasterIndex(int masterIndex)
         {
-            List<TelemetryFieldsRecord> result = await _telemetryService.GetFromFieldsAsync(masterIndex);
+            List<TelemetrySensorFields> result = await _telemetryService.GetFromFieldsAsync(masterIndex);
             if (result.Count == 0)
             {
                 return NotFound($"No TelemetryFields found for Master Index {masterIndex}");
@@ -30,7 +30,7 @@ namespace Analyzer_Service.Controllers
         [HttpGet("flight/{masterIndex}")]
         public async Task<IActionResult> GetFlightByMasterIndex(int masterIndex)
         {
-            List<TelemetryFlightDataRecord> result = await _telemetryService.GetFromFlightDataAsync(masterIndex);
+            List<TelemetryFlightData> result = await _telemetryService.GetFromFlightDataAsync(masterIndex);
             if (result.Count == 0)
             {
                 return NotFound($"No TelemetryFlightData found for Master Index {masterIndex}");
