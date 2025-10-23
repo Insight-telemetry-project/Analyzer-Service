@@ -1,12 +1,13 @@
-﻿using Analyzer_Service.Models.Schema;
+﻿using Analyzer_Service.Models.Interface.Mongo;
+using Analyzer_Service.Models.Schema;
 
 namespace Analyzer_Service.Services.Mongo
 {
-    public class PrepareFlightData
+    public class PrepareFlightData: IPrepareFlightData
     {
-        private readonly FlightTelemetryMongoProxy _telemetryMongo;
+        private readonly IFlightTelemetryMongoProxy _telemetryMongo;
 
-        public PrepareFlightData(FlightTelemetryMongoProxy telemetryMongo)
+        public PrepareFlightData(IFlightTelemetryMongoProxy telemetryMongo)
         {
             _telemetryMongo = telemetryMongo;
         }

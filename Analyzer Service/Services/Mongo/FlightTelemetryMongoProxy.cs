@@ -1,12 +1,13 @@
 ﻿using Analyzer_Service.Models.Configuration;
 using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Schema;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 
 namespace Analyzer_Service.Services.Mongo
 {
-    public class FlightTelemetryMongoProxy
+    public class FlightTelemetryMongoProxy: IFlightTelemetryMongoProxy
     {
         private readonly IMongoCollection<TelemetrySensorFields> _telemetryFields;
         private readonly IMongoCollection<TelemetryFlightData> _telemetryFlightData;
