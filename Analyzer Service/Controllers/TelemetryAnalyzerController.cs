@@ -1,4 +1,5 @@
 ﻿using Analyzer_Service.Models.Interface.Algorithms;
+using Analyzer_Service.Models.Interface.Algorithms.Ccm;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Schema;
 using Analyzer_Service.Services.Mongo;
@@ -15,14 +16,17 @@ namespace Analyzer_Service.Controllers
         private readonly IGrangerCausalityAnalyzer _grangerAnalyzer;
         private readonly IPrepareFlightData _flightDataPreparer;
         private readonly IFlightCausality _flightCausality;
+        private readonly ICcmCausalityAnalyzer _ccmAnalyzer;
+
 
         public TelemetryAnalyzerController(IFlightTelemetryMongoProxy flightTelemetryMongoProxy, IGrangerCausalityAnalyzer grangerCausalityAnalyzer,
-            IPrepareFlightData flightDataPreparer, IFlightCausality flightCausalityService)
+            IPrepareFlightData flightDataPreparer, IFlightCausality flightCausalityService, ICcmCausalityAnalyzer ccmAnalyzer)
         {
             _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
             _grangerAnalyzer = grangerCausalityAnalyzer;
             _flightDataPreparer = flightDataPreparer;
             _flightCausality = flightCausalityService;
+            _ccmAnalyzer = ccmAnalyzer;
 
 
 
@@ -50,13 +54,20 @@ namespace Analyzer_Service.Controllers
             return Ok(result);
         }
 
-
-        [HttpGet("analyze/{masterIndex}/{xField}/{yField}/{lag}")]
-        public async Task<IActionResult> Analyze(int masterIndex, string xField, string yField, int lag)
+        [HttpGet("analyze-granger/{masterIndex}/{xField}/{yField}/{lag}")]
+        public async Task<IActionResult> AnalyzeGranger(int masterIndex, string xField, string yField, int lag)
         {
-            object result = await _flightCausality.AnalyzeCausalityAsync(masterIndex, xField, yField, lag);
+            object result = await _flightCausality.AnalyzeGrangerAsync(masterIndex, xField, yField, lag);
+            return Ok(result);
+        }
+
+        [HttpGet("analyze-ccm/{masterIndex}/{xField}/{yField}/{embeddingDim}/{delay}")]
+        public async Task<IActionResult> AnalyzeCcm(int masterIndex, string xField, string yField, int embeddingDim, int delay)
+        {
+            object result = await _flightCausality.AnalyzeCcmAsync(masterIndex, xField, yField, embeddingDim, delay);
             return Ok(result);
         }
     }
 }
+
 
