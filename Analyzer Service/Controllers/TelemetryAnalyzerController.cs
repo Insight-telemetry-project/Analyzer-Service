@@ -67,6 +67,14 @@ namespace Analyzer_Service.Controllers
             object result = await _flightCausality.AnalyzeCcmAsync(masterIndex, xField, yField, embeddingDim, delay);
             return Ok(result);
         }
+
+        [HttpGet("analyze-hybrid/{masterIndex}/{xField}/{yField}/{lag}/{embeddingDim}/{delay}")]
+        public async Task<IActionResult> AnalyzeHybrid(int masterIndex, string xField, string yField, int lag, int embeddingDim, int delay)
+        {
+            object result = await _flightCausality.AnalyzeHybridAsync(masterIndex, xField, yField, lag, embeddingDim, delay);
+            return Ok(result);
+        }
+
     }
 }
 
