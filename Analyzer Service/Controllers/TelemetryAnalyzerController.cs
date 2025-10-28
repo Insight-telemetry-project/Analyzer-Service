@@ -27,9 +27,6 @@ namespace Analyzer_Service.Controllers
             _flightDataPreparer = flightDataPreparer;
             _flightCausality = flightCausalityService;
             _ccmAnalyzer = ccmAnalyzer;
-
-
-
         }
 
         [HttpGet("fields/{masterIndex}")]
@@ -54,24 +51,11 @@ namespace Analyzer_Service.Controllers
             return Ok(result);
         }
 
-        [HttpGet("analyze-granger/{masterIndex}/{xField}/{yField}/{lag}")]
-        public async Task<IActionResult> AnalyzeGranger(int masterIndex, string xField, string yField, int lag)
+        
+        [HttpGet("analyze-auto/{masterIndex}/{xField}/{yField}/{lag}/{embeddingDim}/{delay}")]
+        public async Task<IActionResult> AnalyzeAuto(int masterIndex, string xField, string yField, int lag, int embeddingDim, int delay)
         {
-            object result = await _flightCausality.AnalyzeGrangerAsync(masterIndex, xField, yField, lag);
-            return Ok(result);
-        }
-
-        [HttpGet("analyze-ccm/{masterIndex}/{xField}/{yField}/{embeddingDim}/{delay}")]
-        public async Task<IActionResult> AnalyzeCcm(int masterIndex, string xField, string yField, int embeddingDim, int delay)
-        {
-            object result = await _flightCausality.AnalyzeCcmAsync(masterIndex, xField, yField, embeddingDim, delay);
-            return Ok(result);
-        }
-
-        [HttpGet("analyze-hybrid/{masterIndex}/{xField}/{yField}/{lag}/{embeddingDim}/{delay}")]
-        public async Task<IActionResult> AnalyzeHybrid(int masterIndex, string xField, string yField, int lag, int embeddingDim, int delay)
-        {
-            object result = await _flightCausality.AnalyzeHybridAsync(masterIndex, xField, yField, lag, embeddingDim, delay);
+            object result = await _flightCausality.AnalyzeAutoAsync(masterIndex, xField, yField, lag, embeddingDim, delay);
             return Ok(result);
         }
 
