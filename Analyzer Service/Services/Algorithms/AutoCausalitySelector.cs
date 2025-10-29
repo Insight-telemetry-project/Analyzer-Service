@@ -7,8 +7,6 @@ namespace Analyzer_Service.Services.Algorithms
     {
         public CausalitySelectionResult SelectAlgorithm(List<double> sourceSeries, List<double> targetSeries)
         {
-            if (sourceSeries.Count == 0 || targetSeries.Count == 0)
-                return new CausalitySelectionResult("None", "Empty data series provided.", 0.0, 0.0);
 
             double pearson = ComputePearsonCorrelation(sourceSeries, targetSeries);
             double derivativeCorrelation = ComputePearsonCorrelation(
