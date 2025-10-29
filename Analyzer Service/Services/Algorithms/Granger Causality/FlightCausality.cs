@@ -38,10 +38,10 @@ namespace Analyzer_Service.Services.Algorithms
             double grangerValue = 0.0;
             double ccmValue = 0.0;
 
-            if (selected == "Granger" || selected == "Hybrid")
+            if (selected == "Granger")
                 grangerValue = _grangerAnalyzer.ComputeCausality(source, target, lag);
 
-            if (selected == "CCM" || selected == "Hybrid")
+            if (selected == "CCM")
                 ccmValue = _ccmAnalyzer.ComputeCausality(source, target, embeddingDim, delay);
 
             return new

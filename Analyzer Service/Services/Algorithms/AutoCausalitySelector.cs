@@ -19,25 +19,15 @@ namespace Analyzer_Service.Services.Algorithms
             string selectedAlgorithm;
             string reasoning;
 
-            if (pearson > 0.8 && derivativeCorrelation < 0.4)
+            if (pearson >= 0.65)
             {
                 selectedAlgorithm = "Granger";
-                reasoning = "Strong linear correlation with lag — delayed linear influence detected.";
-            }
-            else if (pearson > 0.7 && derivativeCorrelation > 0.6)
-            {
-                selectedAlgorithm = "Granger";
-                reasoning = "Strong linear dependency detected — using Granger causality.";
-            }
-            else if (pearson < 0.4)
-            {
-                selectedAlgorithm = "CCM";
-                reasoning = "Weak linear correlation — possible nonlinear dependency, using CCM.";
+                reasoning = $"Strong or moderate linear correlation detected (Pearson={pearson:F2}) — using Granger causality.";
             }
             else
             {
-                selectedAlgorithm = "Hybrid";
-                reasoning = "Intermediate correlation — mixed linear and nonlinear behavior expected.";
+                selectedAlgorithm = "CCM";
+                reasoning = $"Weak linear correlation (Pearson={pearson:F2}) — nonlinear dependency suspected, using CCM.";
             }
 
             return new CausalitySelectionResult(selectedAlgorithm, reasoning, pearson, derivativeCorrelation);
