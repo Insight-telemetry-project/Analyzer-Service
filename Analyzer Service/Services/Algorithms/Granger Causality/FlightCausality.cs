@@ -4,6 +4,8 @@ using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Ro.Algorithms;
+using Analyzer_Service.Models.Schema;
+using System.Collections.Concurrent;
 
 namespace Analyzer_Service.Services.Algorithms
 {
@@ -47,7 +49,7 @@ namespace Analyzer_Service.Services.Algorithms
             if (selected == "CCM")
                 ccmValue = _ccmAnalyzer.ComputeCausality(source, target, embeddingDim, delay);
 
-            if (grangerValue > 0.01 || ccmValue > 0.01)
+            if (grangerValue > 0.05 || ccmValue > 0.1)
             {
                 await _flightTelemetryMongoProxy.StoreConnectionsAsync(masterIndex, xField, yField);
             }
@@ -63,6 +65,51 @@ namespace Analyzer_Service.Services.Algorithms
                 CcmValue = ccmValue
             };
         }
+
+        public async Task<object> AnalyzeFlightAsync(int masterIndex, int lag, int embeddingDim, int delay)
+        {
+            List<TelemetrySensorFields> flightData = await _flightTelemetryMongoProxy.GetFromFieldsAsync(masterIndex);
+            if (flightData.Count == 0)
+                return new { Message = $"No data found for flight {masterIndex}" };
+
+            Dictionary<string, List<double>> allFields = new();
+            foreach (var record in flightData)
+            {
+                foreach (var kvp in record.Fields)
+                {
+                    if (!allFields.ContainsKey(kvp.Key))
+                        allFields[kvp.Key] = new List<double>();
+                    allFields[kvp.Key].Add(kvp.Value);
+                }
+            }
+
+            List<string> fieldNames = allFields.Keys.ToList();
+            List<(string X, string Y)> pairs = new();
+            for (int i = 0; i < fieldNames.Count; i++)
+            {
+                for (int j = 0; j < fieldNames.Count; j++)
+                {
+                    if (i != j)
+                        pairs.Add((fieldNames[i], fieldNames[j]));
+                }
+            }
+
+            ConcurrentBag<object> results = new();
+
+            await Parallel.ForEachAsync(pairs, async (pair, token) =>
+            {
+                object result = await AnalyzeAutoAsync(masterIndex, pair.X, pair.Y, lag, embeddingDim, delay);
+                results.Add(result);
+            });
+
+            return new
+            {
+                Flight = masterIndex,
+                TotalPairs = pairs.Count,
+                Results = results.ToList()
+            };
+        }
+
     }
 
 }
