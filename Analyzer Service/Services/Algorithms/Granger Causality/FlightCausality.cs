@@ -13,17 +13,20 @@ namespace Analyzer_Service.Services.Algorithms
         private readonly IGrangerCausalityAnalyzer _grangerAnalyzer;
         private readonly ICcmCausalityAnalyzer _ccmAnalyzer;
         private readonly IPrepareFlightData _flightDataPreparer;
+        private readonly IFlightTelemetryMongoProxy _flightTelemetryMongoProxy;
 
         public FlightCausality(
             IGrangerCausalityAnalyzer grangerAnalyzer,
             ICcmCausalityAnalyzer ccmAnalyzer,
             IPrepareFlightData flightDataPreparer,
-            IAutoCausalitySelector autoSelector)
+            IAutoCausalitySelector autoSelector,
+            IFlightTelemetryMongoProxy flightTelemetryMongoProxy)
         {
             _grangerAnalyzer = grangerAnalyzer;
             _ccmAnalyzer = ccmAnalyzer;
             _flightDataPreparer = flightDataPreparer;
             _autoSelector = autoSelector;
+            _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
         }
 
         public async Task<object> AnalyzeAutoAsync(int masterIndex, string xField, string yField, int lag, int embeddingDim, int delay)
@@ -44,7 +47,12 @@ namespace Analyzer_Service.Services.Algorithms
             if (selected == "CCM")
                 ccmValue = _ccmAnalyzer.ComputeCausality(source, target, embeddingDim, delay);
 
-            return new
+            if (grangerValue > 0.01 || ccmValue > 0.01)
+            {
+                await _flightTelemetryMongoProxy.StoreConnectionsAsync(masterIndex, xField, yField);
+            }
+
+                return new
             {
                 MasterIndex = masterIndex,
                 XField = xField,
