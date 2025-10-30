@@ -59,6 +59,12 @@ namespace Analyzer_Service.Controllers
             return Ok(result);
         }
 
+        [HttpGet("analyze-flight/{masterIndex}/{lag}/{embeddingDim}/{delay}")]
+        public async Task<IActionResult> AnalyzeFlight(int masterIndex, int lag, int embeddingDim, int delay)
+        {
+            object result = await _flightCausality.AnalyzeFlightAsync(masterIndex, lag, embeddingDim, delay);
+            return Ok(result);
+        }
     }
 }
 
