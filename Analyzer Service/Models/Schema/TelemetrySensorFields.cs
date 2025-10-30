@@ -15,5 +15,6 @@ namespace Analyzer_Service.Models.Schema
 
         [BsonElement("Master Index")]
         public int MasterIndex { get; set; }
+        public Dictionary<string, List<string>> Connections { get; internal set; }
     }
 }
