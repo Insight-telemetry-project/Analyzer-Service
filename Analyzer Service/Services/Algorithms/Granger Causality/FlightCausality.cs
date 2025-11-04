@@ -1,5 +1,4 @@
 ﻿using Analyzer_Service.Models.Algorithms;
-using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
 using Analyzer_Service.Models.Interface.Mongo;
@@ -14,56 +13,18 @@ namespace Analyzer_Service.Services.Algorithms
         private readonly IAutoCausalitySelector _autoSelector;
         private readonly IGrangerCausalityAnalyzer _grangerAnalyzer;
         private readonly ICcmCausalityAnalyzer _ccmAnalyzer;
-        private readonly IPrepareFlightData _flightDataPreparer;
         private readonly IFlightTelemetryMongoProxy _flightTelemetryMongoProxy;
 
         public FlightCausality(
             IGrangerCausalityAnalyzer grangerAnalyzer,
             ICcmCausalityAnalyzer ccmAnalyzer,
-            IPrepareFlightData flightDataPreparer,
             IAutoCausalitySelector autoSelector,
             IFlightTelemetryMongoProxy flightTelemetryMongoProxy)
         {
             _grangerAnalyzer = grangerAnalyzer;
             _ccmAnalyzer = ccmAnalyzer;
-            _flightDataPreparer = flightDataPreparer;
             _autoSelector = autoSelector;
             _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
-        }
-
-        public async Task<object> AnalyzeAutoAsync(int masterIndex, string xField, string yField, int lag, int embeddingDim, int delay)
-        {
-            (List<double> source, List<double> target) =
-                await _flightDataPreparer.PrepareFlightDataAsync(masterIndex, xField, yField);
-
-            CausalitySelectionResult causalitySelectionResult = _autoSelector.SelectAlgorithm(source, target);
-            string selected = causalitySelectionResult.SelectedAlgorithm;
-            string reason = causalitySelectionResult.Reasoning;
-
-            double grangerValue = 0.0;
-            double ccmValue = 0.0;
-
-            if (selected == "Granger")
-                grangerValue = _grangerAnalyzer.ComputeCausality(source, target, lag);
-
-            if (selected == "CCM")
-                ccmValue = _ccmAnalyzer.ComputeCausality(source, target, embeddingDim, delay);
-
-            if (grangerValue > 0.05 || ccmValue > 0.1)
-            {
-                await _flightTelemetryMongoProxy.StoreConnectionsAsync(masterIndex, xField, yField);
-            }
-
-                return new
-            {
-                MasterIndex = masterIndex,
-                XField = xField,
-                YField = yField,
-                SelectedAlgorithm = selected,
-                Reasoning = reason,
-                GrangerValue = grangerValue,
-                CcmValue = ccmValue
-            };
         }
 
         public async Task<object> AnalyzeFlightAsync(int masterIndex, int lag, int embeddingDim, int delay)
@@ -98,7 +59,7 @@ namespace Analyzer_Service.Services.Algorithms
 
             await Parallel.ForEachAsync(pairs, async (pair, token) =>
             {
-                object result = await AnalyzeAutoAsync(masterIndex, pair.X, pair.Y, lag, embeddingDim, delay);
+                object result = await AnalyzePairAsync(masterIndex, pair.X, pair.Y, lag, embeddingDim, delay, allFields);
                 results.Add(result);
             });
 
@@ -110,6 +71,55 @@ namespace Analyzer_Service.Services.Algorithms
             };
         }
 
-    }
+        private async Task<object> AnalyzePairAsync(
+            int masterIndex,
+            string xField,
+            string yField,
+            int lag,
+            int embeddingDim,
+            int delay,
+            Dictionary<string, List<double>> allFields)
+        {
+            List<double> source = allFields.ContainsKey(xField) ? allFields[xField] : new List<double>();
+            List<double> target = allFields.ContainsKey(yField) ? allFields[yField] : new List<double>();
 
+            if (source.Count == 0 || target.Count == 0)
+            {
+                return new
+                {
+                    MasterIndex = masterIndex,
+                    XField = xField,
+                    YField = yField,
+                    Message = "Missing field data"
+                };
+            }
+
+            CausalitySelectionResult causalitySelectionResult = _autoSelector.SelectAlgorithm(source, target);
+            string selected = causalitySelectionResult.SelectedAlgorithm;
+            string reason = causalitySelectionResult.Reasoning;
+
+            double grangerValue = 0.0;
+            double ccmValue = 0.0;
+
+            if (selected == "Granger")
+                grangerValue = _grangerAnalyzer.ComputeCausality(source, target, lag);
+
+            if (selected == "CCM")
+                ccmValue = _ccmAnalyzer.ComputeCausality(source, target, embeddingDim, delay);
+
+            if (grangerValue > 0.05 || ccmValue > 0.1)
+                await _flightTelemetryMongoProxy.StoreConnectionsAsync(masterIndex, xField, yField);
+
+            return new
+            {
+                MasterIndex = masterIndex,
+                XField = xField,
+                YField = yField,
+                SelectedAlgorithm = selected,
+                Reasoning = reason,
+                GrangerValue = grangerValue,
+                CcmValue = ccmValue
+            };
+        }
+    }
 }
