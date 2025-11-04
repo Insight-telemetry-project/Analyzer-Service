@@ -52,12 +52,12 @@ namespace Analyzer_Service.Controllers
         }
 
         
-        [HttpGet("analyze-auto/{masterIndex}/{xField}/{yField}/{lag}/{embeddingDim}/{delay}")]
-        public async Task<IActionResult> AnalyzeAuto(int masterIndex, string xField, string yField, int lag, int embeddingDim, int delay)
-        {
-            object result = await _flightCausality.AnalyzeAutoAsync(masterIndex, xField, yField, lag, embeddingDim, delay);
-            return Ok(result);
-        }
+        //[HttpGet("analyze-auto/{masterIndex}/{xField}/{yField}/{lag}/{embeddingDim}/{delay}")]
+        //public async Task<IActionResult> AnalyzeAuto(int masterIndex, string xField, string yField, int lag, int embeddingDim, int delay)
+        //{
+        //    object result = await _flightCausality.AnalyzeAutoAsync(masterIndex, xField, yField, lag, embeddingDim, delay);
+        //    return Ok(result);
+        //}
 
         [HttpGet("analyze-flight/{masterIndex}/{lag}/{embeddingDim}/{delay}")]
         public async Task<IActionResult> AnalyzeFlight(int masterIndex, int lag, int embeddingDim, int delay)
@@ -65,6 +65,7 @@ namespace Analyzer_Service.Controllers
             object result = await _flightCausality.AnalyzeFlightAsync(masterIndex, lag, embeddingDim, delay);
             return Ok(result);
         }
+
     }
 }
 

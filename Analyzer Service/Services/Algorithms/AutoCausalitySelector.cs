@@ -17,7 +17,7 @@ namespace Analyzer_Service.Services.Algorithms
             string selectedAlgorithm;
             string reasoning;
 
-            if (pearson >= 0.65)
+            if (Math.Abs(pearson) >= 0.65)
             {
                 selectedAlgorithm = "Granger";
                 reasoning = $"Strong or moderate linear correlation detected (Pearson={pearson:F2}) — using Granger causality.";
