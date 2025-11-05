@@ -5,7 +5,8 @@ using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using System.Collections.Concurrent;
-
+using System.Reflection.Metadata;
+using Analyzer_Service.Models.Constant;
 namespace Analyzer_Service.Services.Algorithms
 {
     public class FlightCausality : IFlightCausality
@@ -27,16 +28,24 @@ namespace Analyzer_Service.Services.Algorithms
             _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
         }
 
-        public async Task<object> AnalyzeFlightAsync(int masterIndex, int lag, int embeddingDim, int delay)
+        public async Task<object> AnalyzeFlightAsync(int masterIndex)
         {
             List<TelemetrySensorFields> flightData = await _flightTelemetryMongoProxy.GetFromFieldsAsync(masterIndex);
-            if (flightData.Count == 0)
-                return new { Message = $"No data found for flight {masterIndex}" };
+
+
+            int flightLength = await _flightTelemetryMongoProxy.GetFlightLengthAsync(masterIndex);
+            if (flightLength <= 0)
+                flightLength = flightData.Count;
+
+
+            int lag = Math.Max(ConstantAlgorithm.MIN_LAG, flightLength / ConstantAlgorithm.LAG_DIVISOR);
+            int embeddingDim = ConstantAlgorithm.CCM_EMBEDDING_DIM;
+            int delay = ConstantAlgorithm.CCM_DELAY;
 
             Dictionary<string, List<double>> allFields = new();
-            foreach (var record in flightData)
+            foreach (TelemetrySensorFields record in flightData)
             {
-                foreach (var kvp in record.Fields)
+                foreach (KeyValuePair<string,double> kvp in record.Fields)
                 {
                     if (!allFields.ContainsKey(kvp.Key))
                         allFields[kvp.Key] = new List<double>();
@@ -97,18 +106,20 @@ namespace Analyzer_Service.Services.Algorithms
             CausalitySelectionResult causalitySelectionResult = _autoSelector.SelectAlgorithm(source, target);
             string selected = causalitySelectionResult.SelectedAlgorithm;
             string reason = causalitySelectionResult.Reasoning;
+            double pearson= causalitySelectionResult.PearsonCorrelation;
 
             double grangerValue = 0.0;
             double ccmValue = 0.0;
-
             if (selected == "Granger")
                 grangerValue = _grangerAnalyzer.ComputeCausality(source, target, lag);
 
             if (selected == "CCM")
                 ccmValue = _ccmAnalyzer.ComputeCausality(source, target, embeddingDim, delay);
 
-            if (grangerValue > 0.05 || ccmValue > 0.1)
+            if (selected == "Granger" && grangerValue < ConstantAlgorithm.GRANGER_CAUSALITY_THRESHOLD || pearson >= ConstantAlgorithm.PEARSON_STRONG_THRESHOLD)
                 await _flightTelemetryMongoProxy.StoreConnectionsAsync(masterIndex, xField, yField);
+
+            
 
             return new
             {

@@ -4,6 +4,7 @@
     {
         public const string FLIGHT_ID = "Master Index";
         public const string MONGO_ID = "_id";
+        public const string FLIGHT_LENGTH = "flight_length";
 
     }
 }

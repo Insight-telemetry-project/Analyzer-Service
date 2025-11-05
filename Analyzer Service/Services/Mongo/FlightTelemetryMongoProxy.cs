@@ -39,24 +39,13 @@ namespace Analyzer_Service.Services.Mongo
             List<TelemetryFlightData> results = await _telemetryFlightData.Find(filter).ToListAsync();
             return results;
         }
+
         public async Task StoreConnectionsAsync(int masterIndex, string sensorName, string connectionTarget)
         {
-            FilterDefinition<TelemetryFlightData> filter = Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
-
-            TelemetryFlightData flightRecord = await _telemetryFlightData.Find(filter).FirstOrDefaultAsync();
-
-
-            flightRecord.Connections ??= new Dictionary<string, List<string>>();
-
-            flightRecord.Connections.TryAdd(sensorName, new List<string>());
-
-            if (!flightRecord.Connections[sensorName].Contains(connectionTarget))
-            {
-                flightRecord.Connections[sensorName].Add(connectionTarget);
-            }
+            FilterDefinition<TelemetryFlightData> filter = Builders<TelemetryFlightData>.Filter.Eq(x => x.MasterIndex, masterIndex);
 
             UpdateDefinition<TelemetryFlightData> update = Builders<TelemetryFlightData>.Update
-                .Set(flight => flight.Connections, flightRecord.Connections);
+                .AddToSet($"Connections.{sensorName}", connectionTarget);
 
             await _telemetryFlightData.UpdateOneAsync(
                 filter,
@@ -65,6 +54,18 @@ namespace Analyzer_Service.Services.Mongo
             );
         }
 
+        public async Task<int> GetFlightLengthAsync(int masterIndex)
+        {
+            FilterDefinition<TelemetryFlightData> filter =
+                Builders<TelemetryFlightData>.Filter.Eq(f => f.MasterIndex, masterIndex);
+
+            TelemetryFlightData? result = await _telemetryFlightData.Find(filter).FirstOrDefaultAsync();
+
+            if (result == null || result.Fields == null || !result.Fields.ContainsKey(ConstantFligth.FLIGHT_LENGTH))
+                return -1;
+
+            return result.Fields[ConstantFligth.FLIGHT_LENGTH];
+        }
 
 
     }
