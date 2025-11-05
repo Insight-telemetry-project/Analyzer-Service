@@ -10,14 +10,8 @@ namespace Analyzer_Service.Services.Algorithms
     {
         public double ComputeCausality(List<double> xSeries, List<double> ySeries, int lagCount)
         {
-            if (xSeries.Count != ySeries.Count)
-                throw new ArgumentException("X series and Y series must have the same length.");
 
             int totalSamples = xSeries.Count;
-
-            if (totalSamples <= lagCount)
-                throw new ArgumentException("Series is too short for the specified lag count.");
-
             List<double[]> yLagMatrix = BuildLagMatrix(ySeries, lagCount);
             List<double[]> xyCombinedLagMatrix = BuildCombinedLagMatrix(xSeries, ySeries, lagCount);
             List<double> targetYValues = ySeries.Skip(lagCount).ToList();
