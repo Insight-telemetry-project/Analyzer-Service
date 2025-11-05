@@ -1,3 +1,4 @@
+using Analyzer_Service.Models.Algorithms;
 using Analyzer_Service.Models.Configuration;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
@@ -21,6 +22,7 @@ builder.Services.AddSingleton<IPrepareFlightData, PrepareFlightData>();
 builder.Services.AddSingleton<IFlightTelemetryMongoProxy, FlightTelemetryMongoProxy>();
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IFlightCausality, FlightCausality>();
+builder.Services.AddSingleton<IAutoCausalitySelector, AutoCausalitySelector>();
 
 
 

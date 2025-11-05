@@ -10,20 +10,10 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
     {
         public double ComputeCausality(List<double> sourceSeries, List<double> targetSeries, int embeddingDimension, int timeDelay)
         {
-            if (sourceSeries == null || targetSeries == null || sourceSeries.Count != targetSeries.Count)
-            {
-                throw new ArgumentException("Input series must be non-null and have the same length.");
-            }
+            int totalSamples = sourceSeries.Count;
+            int requiredSamples = (embeddingDimension - 1) * timeDelay + 1;
 
-            if (embeddingDimension < 2 || timeDelay < 1)
-            {
-                throw new ArgumentException("Invalid embedding parameters.");
-            }
-
-            int totalLength = sourceSeries.Count;
-            int minimumRequired = (embeddingDimension - 1) * timeDelay + 1;
-
-            if (totalLength < minimumRequired + 10)
+            if (totalSamples < requiredSamples + 10)
             {
                 return 0.0;
             }
@@ -34,94 +24,118 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
             EmbeddingResult sourceEmbedding = BuildTakensEmbedding(normalizedSource, embeddingDimension, timeDelay);
             EmbeddingResult targetEmbedding = BuildTakensEmbedding(normalizedTarget, embeddingDimension, timeDelay);
 
-            int vectorCount = Math.Min(sourceEmbedding.Vectors.Count, targetEmbedding.Vectors.Count);
-            if (vectorCount < embeddingDimension + 2)
+            int totalVectors = Math.Min(sourceEmbedding.Vectors.Count, targetEmbedding.Vectors.Count);
+            if (totalVectors < embeddingDimension + 2)
             {
                 return 0.0;
             }
 
             int minLibrarySize = Math.Max(20, embeddingDimension + 2);
-            int maxLibrarySize = Math.Min(500, vectorCount - 5);
+            int maxLibrarySize = Math.Min(500, totalVectors - 5);
             int libraryStep = Math.Max(10, (maxLibrarySize - minLibrarySize) / 10);
 
             double bestCorrelation = 0.0;
 
-            for (int librarySize = minLibrarySize; librarySize <= maxLibrarySize; librarySize += libraryStep)
+            for (int currentLibrarySize = minLibrarySize; currentLibrarySize <= maxLibrarySize; currentLibrarySize += libraryStep)
             {
-                int predictionCount = vectorCount - librarySize;
-                if (predictionCount < 5)
+                double correlation = ComputeCorrelationForLibrary(
+                    normalizedSource,
+                    targetEmbedding,
+                    sourceEmbedding,
+                    currentLibrarySize,
+                    embeddingDimension,
+                    totalVectors
+                );
+
+                if (correlation > bestCorrelation)
                 {
-                    break;
-                }
-
-                double[][] targetLibraryVectors = targetEmbedding.Vectors.Take(librarySize).ToArray();
-                double[] sourceValuesInLibrary = sourceEmbedding.AnchorIndices
-                    .Take(librarySize)
-                    .Select(index => normalizedSource[index])
-                    .ToArray();
-
-                int neighborCount = embeddingDimension + 1;
-                List<double> estimatedSourceValues = new List<double>(predictionCount);
-                List<double> actualSourceValues = new List<double>(predictionCount);
-
-                for (int predictionIndex = librarySize; predictionIndex < vectorCount; predictionIndex++)
-                {
-                    double[] queryVector = targetEmbedding.Vectors[predictionIndex];
-                    List<Neighbor> nearestNeighbors = FindNearestNeighbors(targetLibraryVectors, queryVector, neighborCount);
-
-                    if (nearestNeighbors.Count < neighborCount)
-                    {
-                        continue;
-                    }
-
-                    double smallestDistance = Math.Max(nearestNeighbors[0].Distance, 1e-12);
-                    double[] weights = ComputeSoftmaxWeights(nearestNeighbors, smallestDistance);
-
-                    double estimatedValue = 0.0;
-                    for (int j = 0; j < neighborCount; j++)
-                    {
-                        int neighborIndex = nearestNeighbors[j].Index;
-                        estimatedValue += weights[j] * sourceValuesInLibrary[neighborIndex];
-                    }
-
-                    double actualValue = normalizedSource[sourceEmbedding.AnchorIndices[predictionIndex]];
-                    if (!double.IsNaN(estimatedValue) && !double.IsNaN(actualValue))
-                    {
-                        estimatedSourceValues.Add(estimatedValue);
-                        actualSourceValues.Add(actualValue);
-                    }
-                }
-
-                if (estimatedSourceValues.Count >= 5)
-                {
-                    double correlation = ComputePearsonCorrelation(estimatedSourceValues, actualSourceValues);
-                    if (!double.IsNaN(correlation))
-                    {
-                        if (correlation > bestCorrelation)
-                        {
-                            bestCorrelation = correlation;
-                        }
-                    }
+                    bestCorrelation = correlation;
                 }
             }
 
             return bestCorrelation;
         }
 
+        private double ComputeCorrelationForLibrary(
+            List<double> normalizedSource,
+            EmbeddingResult targetEmbedding,
+            EmbeddingResult sourceEmbedding,
+            int librarySize,
+            int embeddingDimension,
+            int totalVectors)
+        {
+            int predictionCount = totalVectors - librarySize;
+            if (predictionCount < 5)
+            {
+                return 0.0;
+            }
+
+            double[][] libraryVectors = targetEmbedding.Vectors.Take(librarySize).ToArray();
+            double[] librarySourceValues = sourceEmbedding.AnchorIndices
+                .Take(librarySize)
+                .Select(index => normalizedSource[index])
+                .ToArray();
+
+            int neighborCount = embeddingDimension + 1;
+            List<double> predictedSourceValues = new List<double>(predictionCount);
+            List<double> actualSourceValues = new List<double>(predictionCount);
+
+            for (int predictionIndex = librarySize; predictionIndex < totalVectors; predictionIndex++)
+            {
+                double[] queryVector = targetEmbedding.Vectors[predictionIndex];
+                List<Neighbor> nearestNeighbors = FindNearestNeighbors(libraryVectors, queryVector, neighborCount);
+
+                bool hasEnoughNeighbors = nearestNeighbors.Count >= neighborCount;
+                if (hasEnoughNeighbors)
+                {
+                    double predictedValue = ComputePredictedValue(librarySourceValues, nearestNeighbors);
+                    double actualValue = normalizedSource[sourceEmbedding.AnchorIndices[predictionIndex]];
+
+                    if (!double.IsNaN(predictedValue) && !double.IsNaN(actualValue))
+                    {
+                        predictedSourceValues.Add(predictedValue);
+                        actualSourceValues.Add(actualValue);
+                    }
+                }
+            }
+
+            if (predictedSourceValues.Count < 5)
+            {
+                return 0.0;
+            }
+
+            return ComputePearsonCorrelation(predictedSourceValues, actualSourceValues);
+        }
+
+        private double ComputePredictedValue(double[] sourceValues, List<Neighbor> neighbors)
+        {
+            double smallestDistance = Math.Max(neighbors[0].Distance, 1e-12);
+            double[] weights = ComputeSoftmaxWeights(neighbors, smallestDistance);
+
+            double predictedValue = 0.0;
+            for (int i = 0; i < neighbors.Count; i++)
+            {
+                int neighborIndex = neighbors[i].Index;
+                predictedValue += weights[i] * sourceValues[neighborIndex];
+            }
+
+            return predictedValue;
+        }
 
         private EmbeddingResult BuildTakensEmbedding(List<double> series, int embeddingDimension, int timeDelay)
         {
-            int lastStartIndex = series.Count - (embeddingDimension - 1) * timeDelay;
-            List<double[]> embeddingVectors = new List<double[]>(lastStartIndex);
-            List<int> anchorIndices = new List<int>(lastStartIndex);
+            int maxStartIndex = series.Count - (embeddingDimension - 1) * timeDelay;
+            List<double[]> embeddingVectors = new List<double[]>(maxStartIndex);
+            List<int> anchorIndices = new List<int>(maxStartIndex);
 
-            for (int startIndex = 0; startIndex < lastStartIndex; startIndex++)
+            for (int startIndex = 0; startIndex < maxStartIndex; startIndex++)
             {
                 double[] vector = new double[embeddingDimension];
-                for (int dim = 0; dim < embeddingDimension; dim++)
+                for (int dimensionIndex = 0; dimensionIndex < embeddingDimension; dimensionIndex++)
                 {
-                    vector[dim] = series[startIndex + dim * timeDelay];
+                    vector[dimensionIndex] = series[startIndex + dimensionIndex * timeDelay];
                 }
+
                 embeddingVectors.Add(vector);
                 anchorIndices.Add(startIndex + (embeddingDimension - 1) * timeDelay);
             }
@@ -147,29 +161,29 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
         {
             int count = neighbors.Count;
             double[] weights = new double[count];
-            double sum = 0.0;
+            double totalWeight = 0.0;
 
             for (int i = 0; i < count; i++)
             {
                 weights[i] = Math.Exp(-neighbors[i].Distance / minDistance);
-                sum += weights[i];
+                totalWeight += weights[i];
             }
 
             for (int i = 0; i < count; i++)
             {
-                weights[i] /= sum;
+                weights[i] /= totalWeight;
             }
 
             return weights;
         }
 
-        private double ComputeEuclideanDistance(double[] a, double[] b)
+        private double ComputeEuclideanDistance(double[] vectorA, double[] vectorB)
         {
             double sum = 0.0;
-            for (int i = 0; i < a.Length; i++)
+            for (int i = 0; i < vectorA.Length; i++)
             {
-                double diff = a[i] - b[i];
-                sum += diff * diff;
+                double difference = vectorA[i] - vectorB[i];
+                sum += difference * difference;
             }
             return Math.Sqrt(sum);
         }
@@ -177,53 +191,48 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
         private List<double> NormalizeZScore(List<double> series)
         {
             double mean = series.Average();
-            double variance = series.Sum(x => Math.Pow(x - mean, 2)) / series.Count;
-            double std = Math.Sqrt(variance);
+            double variance = series.Sum(value => Math.Pow(value - mean, 2)) / series.Count;
+            double stdDev = Math.Sqrt(variance);
 
-            if (std == 0.0)
+            if (stdDev == 0.0)
             {
                 return series.Select(_ => 0.0).ToList();
             }
 
-            List<double> normalized = new List<double>(series.Count);
-            foreach (double value in series)
-            {
-                normalized.Add((value - mean) / std);
-            }
-            return normalized;
+            return series.Select(value => (value - mean) / stdDev).ToList();
         }
 
-        private double ComputePearsonCorrelation(List<double> a, List<double> b)
+        private double ComputePearsonCorrelation(List<double> firstSeries, List<double> secondSeries)
         {
-            int n = Math.Min(a.Count, b.Count);
-            if (n == 0)
+            int sampleCount = Math.Min(firstSeries.Count, secondSeries.Count);
+            if (sampleCount == 0)
             {
                 return 0.0;
             }
 
-            double meanA = a.Average();
-            double meanB = b.Average();
+            double meanFirst = firstSeries.Average();
+            double meanSecond = secondSeries.Average();
 
-            double numerator = 0.0;
-            double sumA = 0.0;
-            double sumB = 0.0;
+            double covariance = 0.0;
+            double varianceFirst = 0.0;
+            double varianceSecond = 0.0;
 
-            for (int i = 0; i < n; i++)
+            for (int i = 0; i < sampleCount; i++)
             {
-                double da = a[i] - meanA;
-                double db = b[i] - meanB;
-                numerator += da * db;
-                sumA += da * da;
-                sumB += db * db;
+                double deviationFirst = firstSeries[i] - meanFirst;
+                double deviationSecond = secondSeries[i] - meanSecond;
+                covariance += deviationFirst * deviationSecond;
+                varianceFirst += deviationFirst * deviationFirst;
+                varianceSecond += deviationSecond * deviationSecond;
             }
 
-            double denominator = Math.Sqrt(sumA * sumB);
+            double denominator = Math.Sqrt(varianceFirst * varianceSecond);
             if (denominator == 0.0)
             {
                 return 0.0;
             }
 
-            return numerator / denominator;
+            return covariance / denominator;
         }
     }
 }
