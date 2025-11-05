@@ -39,5 +39,34 @@ namespace Analyzer_Service.Services.Mongo
             List<TelemetryFlightData> results = await _telemetryFlightData.Find(filter).ToListAsync();
             return results;
         }
+
+        public async Task StoreConnectionsAsync(int masterIndex, string sensorName, string connectionTarget)
+        {
+            FilterDefinition<TelemetryFlightData> filter = Builders<TelemetryFlightData>.Filter.Eq(x => x.MasterIndex, masterIndex);
+
+            UpdateDefinition<TelemetryFlightData> update = Builders<TelemetryFlightData>.Update
+                .AddToSet($"Connections.{sensorName}", connectionTarget);
+
+            await _telemetryFlightData.UpdateOneAsync(
+                filter,
+                update,
+                new UpdateOptions { IsUpsert = true }
+            );
+        }
+
+        public async Task<int> GetFlightLengthAsync(int masterIndex)
+        {
+            FilterDefinition<TelemetryFlightData> filter =
+                Builders<TelemetryFlightData>.Filter.Eq(f => f.MasterIndex, masterIndex);
+
+            TelemetryFlightData? result = await _telemetryFlightData.Find(filter).FirstOrDefaultAsync();
+
+            if (result == null || result.Fields == null || !result.Fields.ContainsKey(ConstantFligth.FLIGHT_LENGTH))
+                return -1;
+
+            return result.Fields[ConstantFligth.FLIGHT_LENGTH];
+        }
+
+
     }
 }

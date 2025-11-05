@@ -51,14 +51,13 @@ namespace Analyzer_Service.Controllers
             return Ok(result);
         }
 
-        
-        [HttpGet("analyze-auto/{masterIndex}/{xField}/{yField}/{lag}/{embeddingDim}/{delay}")]
-        public async Task<IActionResult> AnalyzeAuto(int masterIndex, string xField, string yField, int lag, int embeddingDim, int delay)
+
+        [HttpGet("analyze-flight/{masterIndex}")]
+        public async Task<IActionResult> AnalyzeFlight(int masterIndex)
         {
-            object result = await _flightCausality.AnalyzeAutoAsync(masterIndex, xField, yField, lag, embeddingDim, delay);
+            object result = await _flightCausality.AnalyzeFlightAsync(masterIndex);
             return Ok(result);
         }
-
     }
 }
 
