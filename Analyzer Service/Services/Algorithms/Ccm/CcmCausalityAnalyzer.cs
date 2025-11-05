@@ -12,12 +12,10 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
         {
             int totalSamples = sourceSeries.Count;
             int requiredSamples = (embeddingDimension - 1) * timeDelay + 1;
-
             if (totalSamples < requiredSamples + 10)
             {
                 return 0.0;
             }
-
             List<double> normalizedSource = NormalizeZScore(sourceSeries);
             List<double> normalizedTarget = NormalizeZScore(targetSeries);
 
@@ -30,13 +28,28 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
                 return 0.0;
             }
 
-            int minLibrarySize = Math.Max(20, embeddingDimension + 2);
-            int maxLibrarySize = Math.Min(500, totalVectors - 5);
-            int libraryStep = Math.Max(10, (maxLibrarySize - minLibrarySize) / 10);
+            return ComputeBestCorrelation(
+                normalizedSource,
+                sourceEmbedding,
+                targetEmbedding,
+                embeddingDimension,
+                totalVectors
+            );
+        }
+        private double ComputeBestCorrelation(
+            List<double> normalizedSource,
+            EmbeddingResult sourceEmbedding,
+            EmbeddingResult targetEmbedding,
+            int embeddingDimension,
+            int totalVectors)
+        {
+            int minimumLibrarySize = Math.Max(20, embeddingDimension + 2);
+            int maximumLibrarySize = Math.Min(500, totalVectors - 5);
+            int libraryStep = Math.Max(10, (maximumLibrarySize - minimumLibrarySize) / 10);
 
             double bestCorrelation = 0.0;
 
-            for (int currentLibrarySize = minLibrarySize; currentLibrarySize <= maxLibrarySize; currentLibrarySize += libraryStep)
+            for (int currentLibrarySize = minimumLibrarySize; currentLibrarySize <= maximumLibrarySize; currentLibrarySize += libraryStep)
             {
                 double correlation = ComputeCorrelationForLibrary(
                     normalizedSource,
@@ -52,9 +65,9 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
                     bestCorrelation = correlation;
                 }
             }
-
             return bestCorrelation;
         }
+
 
         private double ComputeCorrelationForLibrary(
             List<double> normalizedSource,
@@ -65,11 +78,6 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
             int totalVectors)
         {
             int predictionCount = totalVectors - librarySize;
-            if (predictionCount < 5)
-            {
-                return 0.0;
-            }
-
             double[][] libraryVectors = targetEmbedding.Vectors.Take(librarySize).ToArray();
             double[] librarySourceValues = sourceEmbedding.AnchorIndices
                 .Take(librarySize)
@@ -98,12 +106,6 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
                     }
                 }
             }
-
-            if (predictedSourceValues.Count < 5)
-            {
-                return 0.0;
-            }
-
             return ComputePearsonCorrelation(predictedSourceValues, actualSourceValues);
         }
 
@@ -118,7 +120,6 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
                 int neighborIndex = neighbors[i].Index;
                 predictedValue += weights[i] * sourceValues[neighborIndex];
             }
-
             return predictedValue;
         }
 
@@ -139,7 +140,6 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
                 embeddingVectors.Add(vector);
                 anchorIndices.Add(startIndex + (embeddingDimension - 1) * timeDelay);
             }
-
             return new EmbeddingResult(embeddingVectors, anchorIndices);
         }
 
@@ -173,7 +173,6 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
             {
                 weights[i] /= totalWeight;
             }
-
             return weights;
         }
 
@@ -198,7 +197,6 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
             {
                 return series.Select(_ => 0.0).ToList();
             }
-
             return series.Select(value => (value - mean) / stdDev).ToList();
         }
 
@@ -212,7 +210,6 @@ namespace Analyzer_Service.Services.Algorithms.Ccm
 
             double meanFirst = firstSeries.Average();
             double meanSecond = secondSeries.Average();
-
             double covariance = 0.0;
             double varianceFirst = 0.0;
             double varianceSecond = 0.0;
