@@ -1,6 +1,6 @@
 ﻿using Analyzer_Service.Models.Algorithms;
 using Analyzer_Service.Models.Ro.Algorithms;
-
+using Analyzer_Service.Models.Constant;
 namespace Analyzer_Service.Services.Algorithms
 {
     public class AutoCausalitySelector : IAutoCausalitySelector
@@ -17,7 +17,7 @@ namespace Analyzer_Service.Services.Algorithms
             string selectedAlgorithm;
             string reasoning;
 
-            if (pearson >= 0.65)
+            if (Math.Abs(pearson) >= ConstantAlgorithm.PEARSON_LINEAR_THRESHOLD)
             {
                 selectedAlgorithm = "Granger";
                 reasoning = $"Strong or moderate linear correlation detected (Pearson={pearson:F2}) — using Granger causality.";
