@@ -9,5 +9,7 @@ namespace Analyzer_Service.Models.Interface.Mongo
         Task<List<TelemetrySensorFields>> GetFromFieldsAsync(int masterIndex);
         Task<List<TelemetryFlightData>> GetFromFlightDataAsync(int masterIndex);
         Task StoreConnectionsAsync(int masterIndex, string sensorName, string connectionTarget);
+        Task<int> GetFlightLengthAsync(int masterIndex);
+
     }
 }

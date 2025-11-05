@@ -2,7 +2,7 @@
 {
     public interface IFlightCausality
     {
-        Task<object> AnalyzeFlightAsync(int masterIndex, int lag, int embeddingDim, int delay);
+        Task<object> AnalyzeFlightAsync(int masterIndex);
 
     }
 }
