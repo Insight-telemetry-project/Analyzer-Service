@@ -2,10 +2,14 @@ using Analyzer_Service.Models.Algorithms;
 using Analyzer_Service.Models.Configuration;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt.Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Services.Algorithms;
 using Analyzer_Service.Services.Algorithms.Ccm;
+using Analyzer_Service.Services.Algorithms.Pelt;
 using Analyzer_Service.Services.Mongo;
+using MathNet.Numerics;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -23,6 +27,12 @@ builder.Services.AddSingleton<IFlightTelemetryMongoProxy, FlightTelemetryMongoPr
 builder.Services.AddOpenApi();
 builder.Services.AddSingleton<IFlightCausality, FlightCausality>();
 builder.Services.AddSingleton<IAutoCausalitySelector, AutoCausalitySelector>();
+
+
+builder.Services.AddSingleton<IChangePointDetectionService, ChangePointDetectionService>();
+builder.Services.AddSingleton<ISignalPreprocessor, SignalPreprocessor>();
+builder.Services.AddSingleton<IPeltAlgorithm, PeltAlgorithm>();
+builder.Services.AddSingleton<IRbfKernelCost, RbfKernelCost>();
 
 
 

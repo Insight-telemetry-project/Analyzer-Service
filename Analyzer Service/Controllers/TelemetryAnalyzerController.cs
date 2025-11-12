@@ -1,5 +1,6 @@
 ﻿using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Schema;
 using Analyzer_Service.Services.Mongo;
@@ -17,16 +18,22 @@ namespace Analyzer_Service.Controllers
         private readonly IPrepareFlightData _flightDataPreparer;
         private readonly IFlightCausality _flightCausality;
         private readonly ICcmCausalityAnalyzer _ccmAnalyzer;
+        private readonly IChangePointDetectionService _changePointDetectionService;
 
-
-        public TelemetryAnalyzerController(IFlightTelemetryMongoProxy flightTelemetryMongoProxy, IGrangerCausalityAnalyzer grangerCausalityAnalyzer,
-            IPrepareFlightData flightDataPreparer, IFlightCausality flightCausalityService, ICcmCausalityAnalyzer ccmAnalyzer)
+        public TelemetryAnalyzerController(
+            IFlightTelemetryMongoProxy flightTelemetryMongoProxy,
+            IGrangerCausalityAnalyzer grangerCausalityAnalyzer,
+            IPrepareFlightData flightDataPreparer,
+            IFlightCausality flightCausalityService,
+            ICcmCausalityAnalyzer ccmAnalyzer,
+            IChangePointDetectionService changePointDetectionService)
         {
             _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
             _grangerAnalyzer = grangerCausalityAnalyzer;
             _flightDataPreparer = flightDataPreparer;
             _flightCausality = flightCausalityService;
             _ccmAnalyzer = ccmAnalyzer;
+            _changePointDetectionService = changePointDetectionService;
         }
 
         [HttpGet("fields/{masterIndex}")]
@@ -58,6 +65,13 @@ namespace Analyzer_Service.Controllers
             object result = await _flightCausality.AnalyzeFlightAsync(masterIndex);
             return Ok(result);
         }
+
+        [HttpGet("change-points/{masterIndex}/{fieldName}")]
+        public async Task<IActionResult> GetChangePoints(int masterIndex, string fieldName)
+        {
+            return Ok(await _changePointDetectionService.DetectChangePointsAsync(masterIndex, fieldName));
+        }
+
     }
 }
 
