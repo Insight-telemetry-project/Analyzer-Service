@@ -13,24 +13,25 @@ namespace Analyzer_Service.Services.Mongo
         }
 
         public async Task<(List<double> X, List<double> Y)> PrepareFlightDataAsync(
-            int masterIndex, string xField, string yField)
+    int masterIndex, string xField, string yField)
         {
             List<TelemetrySensorFields> records = await _telemetryMongo.GetFromFieldsAsync(masterIndex);
             List<TelemetrySensorFields> ordered = records.OrderBy(record => record.Timestep).ToList();
 
-            List<double> xSeries = new List<double>();
-            List<double> ySeries = new List<double>();
+            List<double> xSeries = new();
+            List<double> ySeries = new();
 
             foreach (TelemetrySensorFields record in ordered)
             {
-                if (record.Fields.ContainsKey(xField) && record.Fields.ContainsKey(yField))
+                if (record.Fields.TryGetValue(yField, out double yValue))
                 {
-                    xSeries.Add(record.Fields[xField]);
-                    ySeries.Add(record.Fields[yField]);
+                    xSeries.Add(record.Timestep);
+                    ySeries.Add(yValue);
                 }
             }
 
             return (xSeries, ySeries);
         }
+
     }
 }
