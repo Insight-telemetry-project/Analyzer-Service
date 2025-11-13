@@ -14,5 +14,9 @@
 
         public const int LAG_DIVISOR = 5000;
         public const int MIN_LAG = 2;
+
+        public const double Epsilon = 1e-12;
+        public const double MadToStdScale = 1.4826;
+
     }
 }
