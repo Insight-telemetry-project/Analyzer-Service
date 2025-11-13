@@ -4,9 +4,7 @@
     {
         IReadOnlyList<double> Apply(
             IReadOnlyList<double> values,
-            bool useHampel,
             int hampelWindow,
-            double hampelSigma,
-            bool useZScore);
+            double hampelSigma);
     }
 }
