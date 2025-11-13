@@ -1,4 +1,5 @@
-﻿using Analyzer_Service.Models.Interface.Algorithms.Pelt;
+﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 
 namespace Analyzer_Service.Services.Algorithms.Pelt
 {
@@ -12,32 +13,29 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         {
             double[] workingSignal = values.ToArray();
 
-                workingSignal = ApplyHampelFilter(workingSignal, hampelWindow, hampelSigma);
-                workingSignal = ApplyZScoreNormalization(workingSignal);
+            workingSignal = ApplyHampelFilter(workingSignal, hampelWindow, hampelSigma);
+            workingSignal = ApplyZScoreNormalization(workingSignal);
 
             return workingSignal;
         }
 
         private double[] ApplyZScoreNormalization(double[] values)
         {
-            double mean = values.Average();
-            double varianceSum = 0.0;
-
-            for (int index = 0; index < values.Length; index++)
-            {
-                double centeredValue = values[index] - mean;
-                varianceSum += centeredValue * centeredValue;
-            }
+            double mean = values.AsParallel().Average();
+            double varianceSum = values
+                       .AsParallel()
+                       .Select(value => (value - mean) * (value - mean))
+                        .Sum();
 
             double standardDeviation = Math.Sqrt(varianceSum / values.Length);
-            if (standardDeviation <= 1e-12) standardDeviation = 1.0;
+            if (standardDeviation <= ConstantAlgorithm.Epsilon)
+                standardDeviation = 1.0;
 
             double[] normalized = new double[values.Length];
-            for (int index = 0; index < values.Length; index++)
+            Parallel.For(0, values.Length, index =>
             {
                 normalized[index] = (values[index] - mean) / standardDeviation;
-            }
-
+            });
             return normalized;
         }
 
@@ -51,47 +49,61 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             int halfWindow = windowSize / 2;
 
             double[] medianValues = new double[length];
-            for (int index = 0; index < length; index++)
+
+            Parallel.For(0, length, index =>
             {
                 int startIndex = Math.Max(index - halfWindow, 0);
                 int endIndex = Math.Min(index + halfWindow, length - 1);
+
                 double[] windowArray = signal[startIndex..(endIndex + 1)];
                 Array.Sort(windowArray);
+
                 medianValues[index] = windowArray[windowArray.Length / 2];
-            }
+            });
 
             double[] deviationFromMedian = new double[length];
-            for (int index = 0; index < length; index++)
+
+            Parallel.For(0, length, index =>
             {
                 deviationFromMedian[index] = Math.Abs(signal[index] - medianValues[index]);
-            }
+            });
+
 
             double[] madValues = new double[length];
-            for (int index = 0; index < length; index++)
+
+            Parallel.For(0, length, index =>
             {
                 int startIndex = Math.Max(index - halfWindow, 0);
                 int endIndex = Math.Min(index + halfWindow, length - 1);
+
                 double[] windowArray = deviationFromMedian[startIndex..(endIndex + 1)];
                 Array.Sort(windowArray);
+
                 madValues[index] = windowArray[windowArray.Length / 2];
-            }
+            });
 
             double[] threshold = new double[length];
-            for (int index = 0; index < length; index++)
+
+            Parallel.For(0, length, index =>
             {
-                threshold[index] = sigmaThreshold * 1.4826 * (madValues[index] + 1e-12);
-            }
+                threshold[index] =
+                    sigmaThreshold *
+                    ConstantAlgorithm.MadToStdScale *
+                    (madValues[index] + ConstantAlgorithm.Epsilon);
+            });
 
             double[] filtered = (double[])signal.Clone();
-            for (int index = 0; index < length; index++)
+
+            Parallel.For(0, length, index =>
             {
                 if (Math.Abs(signal[index] - medianValues[index]) > threshold[index])
                 {
                     filtered[index] = medianValues[index];
                 }
-            }
+            });
 
             return filtered;
+
         }
     }
 }
