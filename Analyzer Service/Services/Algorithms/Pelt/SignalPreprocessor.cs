@@ -6,17 +6,13 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
     {
         public IReadOnlyList<double> Apply(
            IReadOnlyList<double> values,
-           bool useHampel,
            int hampelWindow,
-           double hampelSigma,
-           bool useZScore)
+           double hampelSigma
+            )
         {
             double[] workingSignal = values.ToArray();
 
-            if (useHampel)
                 workingSignal = ApplyHampelFilter(workingSignal, hampelWindow, hampelSigma);
-
-            if (useZScore)
                 workingSignal = ApplyZScoreNormalization(workingSignal);
 
             return workingSignal;

@@ -24,11 +24,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
         public async Task<IReadOnlyList<int>> DetectChangePointsAsync(int masterIndex, string fieldName)
         {
-            const bool UseHampel = true;
             const int HampelWindow = 10;
             const double HampelSigma = 2.5;
 
-            const bool UseZScore = true;
 
             const double PenaltyBeta = 2.0;
             const double MinimumSegmentSeconds = 5.0;
@@ -41,7 +39,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                 return new List<int>();
 
             IReadOnlyList<double> cleaned = signalPreprocessor.Apply(
-                values, UseHampel, HampelWindow, HampelSigma, UseZScore);
+                values, HampelWindow, HampelSigma);
 
             double samplingFrequency = EstimateSamplingFrequency(times);
 
