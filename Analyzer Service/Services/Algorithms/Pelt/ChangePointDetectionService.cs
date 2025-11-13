@@ -43,7 +43,8 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
             double samplingFrequency = EstimateSamplingFrequency(times);
 
-            int minSegmentSamples = ComputeMinimumSampleCount(samplingFrequency, MinimumSegmentSeconds);
+            int minSegmentSamples = (int)Math.Round(samplingFrequency * MinimumSegmentSeconds);
+
 
             IReadOnlyList<int> rawBreakpoints =
                 peltAlgorithm.DetectChangePoints(cleaned, minSegmentSamples, Jump, PenaltyBeta);
@@ -98,34 +99,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             {
                 median = 0.5 * (positiveDifferences[count / 2 - 1] + positiveDifferences[count / 2]);
             }
-
-            if (median <= 0.0)
-            {
-                return double.NaN;
-            }
-
             return 1.0 / median;
         }
 
-        private static int ComputeMinimumSampleCount(double frequency, double minimumSeconds)
-        {
-            if (double.IsNaN(frequency) || frequency <= 0.0)
-            {
-                int fallbackPoints = (int)Math.Round(1.5 * minimumSeconds);
-                if (fallbackPoints < 2)
-                {
-                    fallbackPoints = 2;
-                }
-                return fallbackPoints;
-            }
-
-            int minimumSamples = (int)Math.Round(frequency * minimumSeconds);
-            if (minimumSamples < 2)
-            {
-                minimumSamples = 2;
-            }
-            return minimumSamples;
-        }
 
         private static List<int> EnforceMinimumChangePointGap(
             List<int> breakpoints,
