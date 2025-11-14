@@ -1,4 +1,6 @@
 ﻿using Analyzer_Service.Models.Interface.Algorithms.Pelt;
+using Analyzer_Service.Models.Constant;
+using System.Threading.Tasks;
 
 namespace Analyzer_Service.Services.Algorithms.Pelt
 {
@@ -6,82 +8,89 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
     {
         private double[,] kernelMatrix;
         private double[,] prefixMatrix;
-        private int minimumSize = 2;
 
-        public int MinimumSize => minimumSize;
+        public int MinimumSize => ConstantPelt.MinimumSegmentLength;
 
-        public void Fit(IReadOnlyList<double> signal)
+        public void Fit(List<double> signalValues)
         {
-            int length = signal.Count;
-            kernelMatrix = new double[length, length];
+            int signalLength = signalValues.Count;
 
-            double[] distancesSquared = new double[length * (length - 1) / 2];
-            int pos = 0;
+            kernelMatrix = new double[signalLength, signalLength];
 
-            for (int i = 0; i < length - 1; i++)
+            double[] squaredDistances = new double[signalLength * (signalLength - 1) / 2];
+
+            Parallel.For(0, signalLength, leftIndex =>
             {
-                double xi = signal[i];
-                for (int j = i + 1; j < length; j++)
+                double leftValue = signalValues[leftIndex];
+
+                for (int rightIndex = leftIndex + 1; rightIndex < signalLength; rightIndex++)
                 {
-                    double diff = xi - signal[j];
-                    distancesSquared[pos] = diff * diff;
-                    pos++;
+                    int flatIndex = ComputeFlatIndex(leftIndex, rightIndex, signalLength);
+                    double difference = leftValue - signalValues[rightIndex];
+                    squaredDistances[flatIndex] = difference * difference;
                 }
-            }
+            });
 
-            Array.Sort(distancesSquared);
-            double median = distancesSquared[distancesSquared.Length / 2];
-            double sigmaSquared = median <= 1e-12 ? 1.0 : median / 2.0;
+            Array.Sort(squaredDistances);
 
-            for (int i = 0; i < length; i++)
+            double medianSquaredDistance = squaredDistances[squaredDistances.Length / 2];
+
+            double sigmaSquared =
+                medianSquaredDistance <= ConstantPelt.ZeroTolerance
+                ? ConstantPelt.DefaultSigmaValue
+                : medianSquaredDistance / ConstantPelt.SigmaDivisionFactor;
+
+            Parallel.For(0, signalLength, rowIndex =>
             {
-                kernelMatrix[i, i] = 1.0;
-                double xi = signal[i];
+                kernelMatrix[rowIndex, rowIndex] = ConstantPelt.DefaultSigmaValue;
 
-                for (int j = i + 1; j < length; j++)
+                double baseValue = signalValues[rowIndex];
+
+                for (int colIndex = rowIndex + 1; colIndex < signalLength; colIndex++)
                 {
-                    double diff = xi - signal[j];
-                    double value = Math.Exp(-(diff * diff) / (2.0 * sigmaSquared));
-                    kernelMatrix[i, j] = value;
-                    kernelMatrix[j, i] = value;
+                    double compareValue = signalValues[colIndex];
+                    double difference = baseValue - compareValue;
+
+                    double gaussianValue = Math.Exp(-(difference * difference) / (2.0 * sigmaSquared));
+
+                    kernelMatrix[rowIndex, colIndex] = gaussianValue;
+                    kernelMatrix[colIndex, rowIndex] = gaussianValue;
                 }
-            }
+            });
 
-            prefixMatrix = new double[length + 1, length + 1];
+            prefixMatrix = new double[signalLength + 1, signalLength + 1];
 
-            for (int i = 1; i <= length; i++)
+            for (int row = 1; row <= signalLength; row++)
             {
-                for (int j = 1; j <= length; j++)
+                for (int col = 1; col <= signalLength; col++)
                 {
-                    prefixMatrix[i, j] =
-                        kernelMatrix[i - 1, j - 1] +
-                        prefixMatrix[i - 1, j] +
-                        prefixMatrix[i, j - 1] -
-                        prefixMatrix[i - 1, j - 1];
+                    prefixMatrix[row, col] =
+                        kernelMatrix[row - 1, col - 1] +
+                        prefixMatrix[row - 1, col] +
+                        prefixMatrix[row, col - 1] -
+                        prefixMatrix[row - 1, col - 1];
                 }
             }
         }
 
-        public double ComputeError(int start, int end)
+        private int ComputeFlatIndex(int leftIndex, int rightIndex, int length)
         {
-            int length = end - start;
-            if (length < minimumSize)
-            {
-                throw new InvalidOperationException("Segment is too short for RBF cost.");
-            }
-
-            double totalSum =
-                prefixMatrix[end, end]
-                - prefixMatrix[start, end]
-                - prefixMatrix[end, start]
-                + prefixMatrix[start, start];
-
-            double diagonalSum = length;
-
-            double value = diagonalSum - totalSum / length;
-            return value;
+            return (leftIndex * length) - (leftIndex * (leftIndex + 1) / 2) + (rightIndex - leftIndex - 1);
         }
 
+        public double ComputeError(int segmentStartIndex, int segmentEndIndex)
+        {
+            int segmentLength = segmentEndIndex - segmentStartIndex;
 
+            double areaSum = prefixMatrix[segmentEndIndex, segmentEndIndex]
+                - prefixMatrix[segmentStartIndex, segmentEndIndex]
+                - prefixMatrix[segmentEndIndex, segmentStartIndex]
+                + prefixMatrix[segmentStartIndex, segmentStartIndex];
+
+            double diagonalValue = segmentLength;
+
+            double errorValue = diagonalValue - areaSum / segmentLength;
+            return errorValue;
+        }
     }
 }

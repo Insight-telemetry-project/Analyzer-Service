@@ -5,105 +5,136 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 {
     public class SignalPreprocessor : ISignalPreprocessor
     {
-        public IReadOnlyList<double> Apply(
-           IReadOnlyList<double> values,
-           int hampelWindow,
-           double hampelSigma
-            )
+        public double[] Apply(
+            List<double> inputSignalValues,
+            int hampelWindowSize,
+            double hampelSigmaThreshold)
         {
-            double[] workingSignal = values.ToArray();
+            double[] processedSignal = inputSignalValues.ToArray();
 
-            workingSignal = ApplyHampelFilter(workingSignal, hampelWindow, hampelSigma);
-            workingSignal = ApplyZScoreNormalization(workingSignal);
+            processedSignal = ApplyHampelFilter(processedSignal, hampelWindowSize, hampelSigmaThreshold);
+            processedSignal = ApplyZScoreNormalization(processedSignal);
 
-            return workingSignal;
+            return processedSignal;
         }
 
-        private double[] ApplyZScoreNormalization(double[] values)
-        {
-            double mean = values.AsParallel().Average();
-            double varianceSum = values
-                       .AsParallel()
-                       .Select(value => (value - mean) * (value - mean))
-                        .Sum();
 
-            double standardDeviation = Math.Sqrt(varianceSum / values.Length);
+        private double[] ApplyZScoreNormalization(double[] signalValues)
+        {
+            double meanValue = signalValues.AsParallel().Average();
+
+            double varianceSum = signalValues.AsParallel()
+                            .Select(value => (value - meanValue) * (value - meanValue)).Sum();
+
+            double standardDeviation = Math.Sqrt(varianceSum / signalValues.Length);
             if (standardDeviation <= ConstantAlgorithm.Epsilon)
                 standardDeviation = 1.0;
 
-            double[] normalized = new double[values.Length];
-            Parallel.For(0, values.Length, index =>
+            double[] normalizedSignal = new double[signalValues.Length];
+
+            Parallel.For(0, signalValues.Length, index =>
             {
-                normalized[index] = (values[index] - mean) / standardDeviation;
+                normalizedSignal[index] = (signalValues[index] - meanValue) / standardDeviation;
             });
-            return normalized;
+
+            return normalizedSignal;
         }
 
-        private double[] ApplyHampelFilter(double[] signal, int windowSize, double sigmaThreshold)
+
+        private double[] ApplyHampelFilter(double[] signalValues, int windowSize, double sigmaThreshold)
         {
-            int length = signal.Length;
-            if (length == 0) return signal;
+            int signalLength = signalValues.Length;
 
             if (windowSize < 1) windowSize = 1;
             if (windowSize % 2 == 0) windowSize += 1;
+
             int halfWindow = windowSize / 2;
 
-            double[] medianValues = new double[length];
+            double[] medianValues = ComputeMedianValues(signalValues, halfWindow);
+            double[] deviationFromMedian = ComputeDeviationFromMedian(signalValues, medianValues);
+            double[] madValues = ComputeMedianOfAbsoluteDeviations(deviationFromMedian, halfWindow);
 
-            Parallel.For(0, length, index =>
+            double[] thresholdValues = new double[signalLength];
+
+            Parallel.For(0, signalLength, index =>
             {
-                int startIndex = Math.Max(index - halfWindow, 0);
-                int endIndex = Math.Min(index + halfWindow, length - 1);
-
-                double[] windowArray = signal[startIndex..(endIndex + 1)];
-                Array.Sort(windowArray);
-
-                medianValues[index] = windowArray[windowArray.Length / 2];
-            });
-
-            double[] deviationFromMedian = new double[length];
-
-            Parallel.For(0, length, index =>
-            {
-                deviationFromMedian[index] = Math.Abs(signal[index] - medianValues[index]);
-            });
-
-
-            double[] madValues = new double[length];
-
-            Parallel.For(0, length, index =>
-            {
-                int startIndex = Math.Max(index - halfWindow, 0);
-                int endIndex = Math.Min(index + halfWindow, length - 1);
-
-                double[] windowArray = deviationFromMedian[startIndex..(endIndex + 1)];
-                Array.Sort(windowArray);
-
-                madValues[index] = windowArray[windowArray.Length / 2];
-            });
-
-            double[] threshold = new double[length];
-
-            Parallel.For(0, length, index =>
-            {
-                threshold[index] =
+                thresholdValues[index] =
                     sigmaThreshold *
                     ConstantAlgorithm.MadToStdScale *
                     (madValues[index] + ConstantAlgorithm.Epsilon);
             });
 
-            double[] filtered = (double[])signal.Clone();
+            double[] filteredSignal = (double[])signalValues.Clone();
 
-            Parallel.For(0, length, index =>
+            Parallel.For(0, signalLength, index =>
             {
-                if (Math.Abs(signal[index] - medianValues[index]) > threshold[index])
+                if (Math.Abs(signalValues[index] - medianValues[index]) > thresholdValues[index])
                 {
-                    filtered[index] = medianValues[index];
+                    filteredSignal[index] = medianValues[index];
                 }
             });
 
-            return filtered;
+            return filteredSignal;
+        }
 
+
+        private double[] ComputeMedianValues(double[] signalValues, int halfWindow)
+        {
+            int signalLength = signalValues.Length;
+            double[] medianValues = new double[signalLength];
+
+            Parallel.For(0, signalLength, index =>
+            {
+                int startIndex = Math.Max(index - halfWindow, 0);
+                int endIndex = Math.Min(index + halfWindow, signalLength - 1);
+
+                double[] windowArray = signalValues
+                    .Skip(startIndex)
+                    .Take(endIndex - startIndex + 1)
+                    .ToArray();
+                Array.Sort(windowArray);
+
+                medianValues[index] = windowArray[windowArray.Length / 2];
+            });
+
+            return medianValues;
+        }
+
+
+        private double[] ComputeDeviationFromMedian(double[] signalValues, double[] medianValues)
+        {
+            int signalLength = signalValues.Length;
+            double[] deviationArray = new double[signalLength];
+
+            Parallel.For(0, signalLength, index =>
+            {
+                deviationArray[index] = Math.Abs(signalValues[index] - medianValues[index]);
+            });
+
+            return deviationArray;
+        }
+
+
+        private double[] ComputeMedianOfAbsoluteDeviations(double[] deviationValues, int halfWindow)
+        {
+            int signalLength = deviationValues.Length;
+            double[] madValues = new double[signalLength];
+
+            Parallel.For(0, signalLength, index =>
+            {
+                int startIndex = Math.Max(index - halfWindow, 0);
+                int endIndex = Math.Min(index + halfWindow, signalLength - 1);
+
+                double[] windowArray = deviationValues
+                    .Skip(startIndex)
+                    .Take(endIndex - startIndex + 1)
+                    .ToArray();
+                Array.Sort(windowArray);
+
+                madValues[index] = windowArray[windowArray.Length / 2];
+            });
+
+            return madValues;
         }
     }
 }
