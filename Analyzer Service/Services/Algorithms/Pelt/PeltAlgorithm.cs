@@ -1,5 +1,7 @@
-﻿using Analyzer_Service.Models.Interface.Algorithms.Pelt;
+﻿using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt.Analyzer_Service.Models.Interface.Algorithms.Pelt;
+
 namespace Analyzer_Service.Services.Algorithms.Pelt
 {
     public class PeltAlgorithm : IPeltAlgorithm
@@ -11,134 +13,166 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             this.costFunction = costFunction;
         }
 
-        public IReadOnlyList<int> DetectChangePoints(
-            IReadOnlyList<double> signal,
-            int minimumSegmentLength,
-            int jump,
-            double penaltyBeta)
+
+
+        public List<int> DetectChangePoints( List<double> signalValues, int minimumSegmentLength, int jumpSize, double penaltyBeta)
         {
-            costFunction.Fit(signal);
-            int sampleCount = signal.Count;
-            int effectiveMinimumSegmentLength = Math.Max(minimumSegmentLength, costFunction.MinimumSize);
+            costFunction.Fit(signalValues);
 
-            Dictionary<int, Dictionary<(int Start, int End), double>> partitionsByEndpoint =
-                new Dictionary<int, Dictionary<(int Start, int End), double>>();
+            int sampleCount = signalValues.Count;
+            int effectiveMinimumSegmentLength =
+                Math.Max(minimumSegmentLength, costFunction.MinimumSize);
 
-            Dictionary<(int Start, int End), double> initialPartition =
-                new Dictionary<(int Start, int End), double>();
+            Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint =
+                new Dictionary<int, Dictionary<SegmentBoundary, double>>();
 
-            initialPartition[(0, 0)] = 0.0;
+            Dictionary<SegmentBoundary, double> initialPartition =
+                new Dictionary<SegmentBoundary, double>
+                {
+                    [new SegmentBoundary(0, 0)] = 0.0
+                };
+
             partitionsByEndpoint[0] = initialPartition;
 
             List<int> admissibleEndpoints = new List<int>();
-            List<int> candidateBreakpoints = GenerateCandidateBreakpoints(sampleCount, effectiveMinimumSegmentLength, jump);
+            List<int> candidateBreakpoints =
+                GenerateCandidateBreakpoints(sampleCount, effectiveMinimumSegmentLength, jumpSize);
 
             foreach (int breakpoint in candidateBreakpoints)
             {
-                int newAdmissiblePoint = (int)Math.Floor((breakpoint - effectiveMinimumSegmentLength) / (double)jump);
-                newAdmissiblePoint *= jump;
-                if (newAdmissiblePoint < 0) newAdmissiblePoint = 0;
-
-                admissibleEndpoints.Add(newAdmissiblePoint);
-
-                Dictionary<(int Start, int End), double> bestPartition = null;
-                double bestPartitionCost = double.PositiveInfinity;
-
-                List<Dictionary<(int Start, int End), double>> evaluatedPartitions =
-                    EvaluateSubproblems(breakpoint, admissibleEndpoints, partitionsByEndpoint, penaltyBeta);
-
-                foreach (Dictionary<(int Start, int End), double> partition in evaluatedPartitions)
-                {
-                    double partitionCost = SumPartitionCost(partition);
-                    if (partitionCost < bestPartitionCost)
-                    {
-                        bestPartitionCost = partitionCost;
-                        bestPartition = partition;
-                    }
-                }
-
-                if (bestPartition != null)
-                {
-                    partitionsByEndpoint[breakpoint] = bestPartition;
-                    admissibleEndpoints = PruneAdmissibleEndpoints(admissibleEndpoints, evaluatedPartitions, bestPartitionCost, penaltyBeta);
-                }
+                admissibleEndpoints = ProcessBreakpoint(
+                    breakpoint,
+                    admissibleEndpoints,
+                    partitionsByEndpoint,
+                    effectiveMinimumSegmentLength,
+                    jumpSize,
+                    penaltyBeta);
             }
 
-            int bestEndpoint = partitionsByEndpoint.Keys
-                .Where(k => k <= sampleCount)
-                .Max();
+            int bestEndpoint =
+                partitionsByEndpoint.Keys.Where(k => k <= sampleCount).Max();
 
-            Dictionary<(int Start, int End), double> finalPartition = partitionsByEndpoint[bestEndpoint];
-            finalPartition.Remove((0, 0));
+            Dictionary<SegmentBoundary, double> finalPartition =
+                partitionsByEndpoint[bestEndpoint];
+
+            finalPartition.Remove(new SegmentBoundary(0, 0));
 
             List<int> breakpoints = ExtractBreakpoints(finalPartition);
             breakpoints.Sort();
             return breakpoints;
         }
 
-        private List<int> GenerateCandidateBreakpoints(int sampleCount, int minLen, int jump)
+
+        private List<int> ProcessBreakpoint(
+    int breakpoint,
+    List<int> admissibleEndpoints,
+    Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint,
+    int effectiveMinimumSegmentLength,
+    int jumpSize,
+    double penaltyBeta)
         {
-            List<int> candidateBreakpoints = new List<int>();
+            int newAdmissiblePoint =
+                (int)Math.Floor((breakpoint - effectiveMinimumSegmentLength) / (double)jumpSize);
+
+            newAdmissiblePoint *= jumpSize;
+            if (newAdmissiblePoint < 0)
+            {
+                newAdmissiblePoint = 0;
+            }
+
+            admissibleEndpoints.Add(newAdmissiblePoint);
+
+            List<Dictionary<SegmentBoundary, double>> evaluatedPartitions =
+                EvaluateSubproblems(breakpoint, admissibleEndpoints, partitionsByEndpoint, penaltyBeta);
+
+            Dictionary<SegmentBoundary, double> bestPartition = null;
+            double bestCost = double.PositiveInfinity;
+
+            foreach (Dictionary<SegmentBoundary, double> partition in evaluatedPartitions)
+            {
+                double cost = SumPartitionCost(partition);
+
+                if (cost < bestCost)
+                {
+                    bestCost = cost;
+                    bestPartition = partition;
+                }
+            }
+
+            if (bestPartition != null)
+            {
+                partitionsByEndpoint[breakpoint] = bestPartition;
+
+                admissibleEndpoints =
+                    PruneAdmissibleEndpoints(admissibleEndpoints, evaluatedPartitions, bestCost, penaltyBeta);
+            }
+
+            return admissibleEndpoints;
+        }
+
+
+        private List<int> GenerateCandidateBreakpoints(int sampleCount, int minimumLength, int jumpSize)
+        {
+            List<int> breakpoints = new List<int>();
             int index = 0;
 
             while (index < sampleCount)
             {
-                if (index >= minLen)
+                if (index >= minimumLength)
                 {
-                    candidateBreakpoints.Add(index);
+                    breakpoints.Add(index);
                 }
-                index += jump;
+                index += jumpSize;
             }
 
-            if (candidateBreakpoints.Count == 0 ||
-                candidateBreakpoints[candidateBreakpoints.Count - 1] != sampleCount)
+            if (breakpoints.Count == 0 || breakpoints[^1] != sampleCount)
             {
-                candidateBreakpoints.Add(sampleCount);
+                breakpoints.Add(sampleCount);
             }
 
-            return candidateBreakpoints;
+            return breakpoints;
         }
 
-        private List<Dictionary<(int Start, int End), double>> EvaluateSubproblems(
+        private List<Dictionary<SegmentBoundary, double>> EvaluateSubproblems(
             int breakpoint,
             List<int> admissibleEndpoints,
-            Dictionary<int, Dictionary<(int Start, int End), double>> partitionsByEndpoint,
+            Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint,
             double penaltyBeta)
         {
-            List<Dictionary<(int Start, int End), double>> expandedPartitions =
-                new List<Dictionary<(int Start, int End), double>>();
+            List<Dictionary<SegmentBoundary, double>> expanded = new List<Dictionary<SegmentBoundary, double>>();
 
             foreach (int startIndex in admissibleEndpoints)
             {
-                if (!partitionsByEndpoint.TryGetValue(startIndex, out Dictionary<(int Start, int End), double> leftPartition))
+                if (!partitionsByEndpoint.TryGetValue(startIndex, out Dictionary<SegmentBoundary, double> leftPartition))
                 {
                     continue;
                 }
 
-                Dictionary<(int Start, int End), double> newPartition =
-                    new Dictionary<(int Start, int End), double>(leftPartition);
+                Dictionary<SegmentBoundary, double> newPartition =
+                    new Dictionary<SegmentBoundary, double>(leftPartition);
 
                 double segmentCost = costFunction.ComputeError(startIndex, breakpoint) + penaltyBeta;
-                newPartition[(startIndex, breakpoint)] = segmentCost;
-                expandedPartitions.Add(newPartition);
+                newPartition[new SegmentBoundary(startIndex, breakpoint)] = segmentCost;
+
+                expanded.Add(newPartition);
             }
 
-            return expandedPartitions;
+            return expanded;
         }
 
         private List<int> PruneAdmissibleEndpoints(
-    List<int> currentEndpoints,
-    List<Dictionary<(int Start, int End), double>> evaluatedPartitions,
-    double bestCost,
-    double penaltyBeta)
+            List<int> currentEndpoints,
+            List<Dictionary<SegmentBoundary, double>> evaluatedPartitions,
+            double bestCost,
+            double penaltyBeta)
         {
             List<int> pruned = new List<int>();
 
             for (int i = 0; i < currentEndpoints.Count; i++)
             {
-                double cost = SumPartitionCost(evaluatedPartitions[i]);
+                double partitionCost = SumPartitionCost(evaluatedPartitions[i]);
 
-                if (cost <= bestCost + penaltyBeta)
+                if (partitionCost <= bestCost + penaltyBeta)
                 {
                     pruned.Add(currentEndpoints[i]);
                 }
@@ -147,21 +181,32 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             return pruned;
         }
 
-        private double SumPartitionCost(Dictionary<(int Start, int End), double> partition)
+        private double SumPartitionCost(Dictionary<SegmentBoundary, double> partition)
         {
-            double sum = 0.0;
-            foreach (double value in partition.Values) sum += value;
-            return sum;
+            double total = 0.0;
+
+            foreach (double cost in partition.Values)
+            {
+                total += cost;
+            }
+
+            return total;
         }
 
-        private List<int> ExtractBreakpoints(Dictionary<(int Start, int End), double> finalPartition)
+        private List<int> ExtractBreakpoints(Dictionary<SegmentBoundary, double> finalPartition)
         {
             List<int> breakpoints = new List<int>();
-            foreach ((int _, int End) segment in finalPartition.Keys)
+
+            foreach (SegmentBoundary boundary in finalPartition.Keys)
             {
-                breakpoints.Add(segment.End);
+                if (boundary.EndIndex != 0)  
+                {
+                    breakpoints.Add(boundary.EndIndex);
+                }
             }
+
             return breakpoints;
         }
+
     }
 }

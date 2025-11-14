@@ -12,8 +12,7 @@ namespace Analyzer_Service.Services.Mongo
             _telemetryMongo = telemetryMongo;
         }
 
-        public async Task<(List<double> X, List<double> Y)> PrepareFlightDataAsync(
-    int masterIndex, string xField, string yField)
+        public async Task<(List<double> X, List<double> Y)> PrepareFlightDataAsync(int masterIndex, string xField, string yField)
         {
             List<TelemetrySensorFields> records = await _telemetryMongo.GetFromFieldsAsync(masterIndex);
             List<TelemetrySensorFields> ordered = records.OrderBy(record => record.Timestep).ToList();

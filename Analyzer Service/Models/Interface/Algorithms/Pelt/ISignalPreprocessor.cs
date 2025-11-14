@@ -2,9 +2,6 @@
 {
     public interface ISignalPreprocessor
     {
-        IReadOnlyList<double> Apply(
-            IReadOnlyList<double> values,
-            int hampelWindow,
-            double hampelSigma);
+        double[] Apply(List<double> values, int hampelWindow, double hampelSigma);
     }
 }

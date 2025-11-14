@@ -4,8 +4,8 @@
     {
         public interface IPeltAlgorithm
         {
-            IReadOnlyList<int> DetectChangePoints(
-                IReadOnlyList<double> values,
+            List<int> DetectChangePoints(
+                List<double> values,
                 int minSegmentSamples,
                 int jump,
                 double penaltyBeta);

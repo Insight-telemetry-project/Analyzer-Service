@@ -2,7 +2,7 @@
 {
     public interface IChangePointDetectionService
     {
-        Task<IReadOnlyList<int>> DetectChangePointsAsync(
+        Task<List<int>> DetectChangePointsAsync(
         int masterIndex,
         string fieldName);
     }
