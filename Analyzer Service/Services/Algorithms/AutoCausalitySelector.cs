@@ -1,52 +1,62 @@
 ﻿using Analyzer_Service.Models.Algorithms;
-using Analyzer_Service.Models.Ro.Algorithms;
+using Analyzer_Service.Models.Algorithms.Type;
 using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Ro.Algorithms;
+using static Analyzer_Service.Models.Algorithms.Type.Types;
+
 namespace Analyzer_Service.Services.Algorithms
 {
     public class AutoCausalitySelector : IAutoCausalitySelector
     {
-        public CausalitySelectionResult SelectAlgorithm(List<double> sourceSeries, List<double> targetSeries)
+        public CausalitySelectionResult SelectAlgorithm(
+            List<double> sourceSeries,
+            List<double> targetSeries)
         {
+            double pearsonCorrelation =
+                ComputePearsonCorrelation(sourceSeries, targetSeries);
 
-            double pearson = ComputePearsonCorrelation(sourceSeries, targetSeries);
-            double derivativeCorrelation = ComputePearsonCorrelation(
-                ComputeDifferences(sourceSeries),
-                ComputeDifferences(targetSeries)
-            );
+            double derivativeCorrelation =
+                ComputePearsonCorrelation(
+                    ComputeDifferences(sourceSeries),
+                    ComputeDifferences(targetSeries));
 
-            string selectedAlgorithm;
+            CausalityAlgorithm selectedAlgorithm;
             string reasoning;
 
-            if (Math.Abs(pearson) >= ConstantAlgorithm.PEARSON_LINEAR_THRESHOLD)
+            if (Math.Abs(pearsonCorrelation) >= ConstantAlgorithm.PEARSON_LINEAR_THRESHOLD)
             {
-                selectedAlgorithm = "Granger";
-                reasoning = $"Strong or moderate linear correlation detected (Pearson={pearson:F2}) — using Granger causality.";
+                selectedAlgorithm = CausalityAlgorithm.Granger;
             }
             else
             {
-                selectedAlgorithm = "CCM";
-                reasoning = $"Weak linear correlation (Pearson={pearson:F2}) — nonlinear dependency suspected, using CCM.";
+                selectedAlgorithm = CausalityAlgorithm.Ccm;
             }
 
-            return new CausalitySelectionResult(selectedAlgorithm, reasoning, pearson, derivativeCorrelation);
+            return new CausalitySelectionResult(
+                selectedAlgorithm,
+                pearsonCorrelation,
+                derivativeCorrelation);
         }
-
 
         private List<double> ComputeDifferences(List<double> series)
         {
             List<double> differences = new List<double>();
-            for (int i = 1; i < series.Count; i++)
+
+            for (int index = 1; index < series.Count; index++)
             {
-                differences.Add(series[i] - series[i - 1]);
+                double delta = series[index] - series[index - 1];
+                differences.Add(delta);
             }
+
             return differences;
         }
 
-        private double ComputePearsonCorrelation(List<double> firstSeries, List<double> secondSeries)
+        private double ComputePearsonCorrelation(
+            List<double> firstSeries,
+            List<double> secondSeries)
         {
             int sampleCount = Math.Min(firstSeries.Count, secondSeries.Count);
-            if (sampleCount == 0)
-                return 0.0;
+
 
             double meanFirst = firstSeries.Average();
             double meanSecond = secondSeries.Average();
@@ -55,18 +65,17 @@ namespace Analyzer_Service.Services.Algorithms
             double varianceFirst = 0.0;
             double varianceSecond = 0.0;
 
-            for (int i = 0; i < sampleCount; i++)
+            for (int index = 0; index < sampleCount; index++)
             {
-                double deviationFirst = firstSeries[i] - meanFirst;
-                double deviationSecond = secondSeries[i] - meanSecond;
+                double deviationFirst = firstSeries[index] - meanFirst;
+                double deviationSecond = secondSeries[index] - meanSecond;
+
                 covariance += deviationFirst * deviationSecond;
                 varianceFirst += deviationFirst * deviationFirst;
                 varianceSecond += deviationSecond * deviationSecond;
             }
 
             double denominator = Math.Sqrt(varianceFirst * varianceSecond);
-            if (denominator == 0.0)
-                return 0.0;
 
             return covariance / denominator;
         }

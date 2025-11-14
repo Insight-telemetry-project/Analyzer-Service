@@ -1,135 +1,221 @@
 ﻿using Analyzer_Service.Models.Algorithms;
+using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using System.Collections.Concurrent;
-using System.Reflection.Metadata;
-using Analyzer_Service.Models.Constant;
+using static Analyzer_Service.Models.Algorithms.Type.Types;
+
 namespace Analyzer_Service.Services.Algorithms
 {
     public class FlightCausality : IFlightCausality
     {
-        private readonly IAutoCausalitySelector _autoSelector;
-        private readonly IGrangerCausalityAnalyzer _grangerAnalyzer;
-        private readonly ICcmCausalityAnalyzer _ccmAnalyzer;
-        private readonly IFlightTelemetryMongoProxy _flightTelemetryMongoProxy;
+        private readonly IAutoCausalitySelector autoSelector;
+        private readonly IGrangerCausalityAnalyzer grangerCausalityAnalyzer;
+        private readonly ICcmCausalityAnalyzer ccmCausalityAnalyzer;
+        private readonly IFlightTelemetryMongoProxy mongoProxy;
+
+        private readonly ConcurrentBag<ConnectionResult> pendingConnections =
+            new ConcurrentBag<ConnectionResult>();
 
         public FlightCausality(
             IGrangerCausalityAnalyzer grangerAnalyzer,
             ICcmCausalityAnalyzer ccmAnalyzer,
-            IAutoCausalitySelector autoSelector,
+            IAutoCausalitySelector autoSelectorService,
             IFlightTelemetryMongoProxy flightTelemetryMongoProxy)
         {
-            _grangerAnalyzer = grangerAnalyzer;
-            _ccmAnalyzer = ccmAnalyzer;
-            _autoSelector = autoSelector;
-            _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
+            grangerCausalityAnalyzer = grangerAnalyzer;
+            ccmCausalityAnalyzer = ccmAnalyzer;
+            autoSelector = autoSelectorService;
+            mongoProxy = flightTelemetryMongoProxy;
+
         }
-
-        public async Task<object> AnalyzeFlightAsync(int masterIndex)
+        public async Task<FlightCausalityAnalysisResult> AnalyzeFlightAsync(int masterIndex)
         {
-            List<TelemetrySensorFields> flightData = await _flightTelemetryMongoProxy.GetFromFieldsAsync(masterIndex);
+            List<TelemetrySensorFields> telemetryRecords =
+                await mongoProxy.GetFromFieldsAsync(masterIndex);
 
+            int flightLength =
+                await mongoProxy.GetFlightLengthAsync(masterIndex);
 
-            int flightLength = await _flightTelemetryMongoProxy.GetFlightLengthAsync(masterIndex);
-            if (flightLength <= 0)
-                flightLength = flightData.Count;
+            Dictionary<string, FieldSeries> telemetryByField =
+                ExtractTelemetryDictionary(telemetryRecords);
 
+            List<FieldPair> fieldPairs =
+                CreateFieldPairs(telemetryByField);
 
-            int lag = Math.Max(ConstantAlgorithm.MIN_LAG, flightLength / ConstantAlgorithm.LAG_DIVISOR);
-            int embeddingDim = ConstantAlgorithm.CCM_EMBEDDING_DIM;
-            int delay = ConstantAlgorithm.CCM_DELAY;
+            int lagCount =
+                Math.Max(
+                    ConstantAlgorithm.MIN_LAG,
+                    flightLength / ConstantAlgorithm.LAG_DIVISOR
+                );
 
-            Dictionary<string, List<double>> allFields = new();
-            foreach (TelemetrySensorFields record in flightData)
-            {
-                foreach (KeyValuePair<string,double> kvp in record.Fields)
-                {
-                    if (!allFields.ContainsKey(kvp.Key))
-                        allFields[kvp.Key] = new List<double>();
-                    allFields[kvp.Key].Add(kvp.Value);
-                }
-            }
+            ConcurrentBag<PairCausalityResult> analysisResults =
+                await ProcessAllPairsAsync(
+                    masterIndex,
+                    fieldPairs,
+                    telemetryByField,
+                    lagCount);
 
-            List<string> fieldNames = allFields.Keys.ToList();
-            List<(string X, string Y)> pairs = new();
-            for (int i = 0; i < fieldNames.Count; i++)
-            {
-                for (int j = 0; j < fieldNames.Count; j++)
-                {
-                    if (i != j)
-                        pairs.Add((fieldNames[i], fieldNames[j]));
-                }
-            }
+            await StorePendingConnectionsAsync();
 
-            ConcurrentBag<object> results = new();
-
-            await Parallel.ForEachAsync(pairs, async (pair, token) =>
-            {
-                object result = await AnalyzePairAsync(masterIndex, pair.X, pair.Y, lag, embeddingDim, delay, allFields);
-                results.Add(result);
-            });
-
-            return new
+            return new FlightCausalityAnalysisResult
             {
                 Flight = masterIndex,
-                TotalPairs = pairs.Count,
-                Results = results.ToList()
+                TotalPairs = fieldPairs.Count,
+                Results = analysisResults.ToList()
             };
         }
 
-        private async Task<object> AnalyzePairAsync(
-            int masterIndex,
-            string xField,
-            string yField,
-            int lag,
-            int embeddingDim,
-            int delay,
-            Dictionary<string, List<double>> allFields)
-        {
-            List<double> source = allFields.ContainsKey(xField) ? allFields[xField] : new List<double>();
-            List<double> target = allFields.ContainsKey(yField) ? allFields[yField] : new List<double>();
 
-            if (source.Count == 0 || target.Count == 0)
+        private Dictionary<string, FieldSeries> ExtractTelemetryDictionary(
+            List<TelemetrySensorFields> telemetryRecords)
+        {
+            return telemetryRecords
+                .SelectMany(record => record.Fields)
+                .GroupBy(entry => entry.Key)
+                .ToDictionary(
+                    group => group.Key,
+                    group => new FieldSeries(
+                        group.Key,
+                        group.Select(entry => entry.Value).ToList()
+                    )
+                );
+        }
+
+
+
+        private List<FieldPair> CreateFieldPairs(
+            Dictionary<string, FieldSeries> telemetryByField)
+        {
+            List<string> fieldNames = telemetryByField.Keys.ToList();
+
+            return fieldNames
+                .SelectMany(
+                    source => fieldNames.Where(target => target != source),
+                    (source, target) => new FieldPair(source, target))
+                .ToList();
+        }
+
+
+        private async Task<ConcurrentBag<PairCausalityResult>> ProcessAllPairsAsync(
+            int masterIndex,
+            List<FieldPair> pairs,
+            Dictionary<string, FieldSeries> telemetryByField,
+            int lagCount)
+        {
+            ConcurrentBag<PairCausalityResult> bag =
+                new ConcurrentBag<PairCausalityResult>();
+
+            await Parallel.ForEachAsync(pairs, async (pair, token) =>
             {
-                return new
-                {
-                    MasterIndex = masterIndex,
-                    XField = xField,
-                    YField = yField,
-                    Message = "Missing field data"
-                };
+                PairCausalityResult result =
+                    await AnalyzePairAsync(
+                        masterIndex,
+                        pair.SourceField,
+                        pair.TargetField,
+                        lagCount,
+                        ConstantAlgorithm.CCM_EMBEDDING_DIM,
+                        ConstantAlgorithm.CCM_DELAY,
+                        telemetryByField);
+
+                bag.Add(result);
+            });
+
+            return bag;
+        }
+
+       
+
+        private async Task StorePendingConnectionsAsync()
+        {
+            foreach (ConnectionResult connection in pendingConnections)
+            {
+                await mongoProxy.StoreConnectionsAsync(
+                    connection.MasterIndex,
+                    connection.SourceField,
+                    connection.TargetField);
             }
 
-            CausalitySelectionResult causalitySelectionResult = _autoSelector.SelectAlgorithm(source, target);
-            string selected = causalitySelectionResult.SelectedAlgorithm;
-            string reason = causalitySelectionResult.Reasoning;
-            double pearson= causalitySelectionResult.PearsonCorrelation;
+            pendingConnections.Clear();
+        }
 
-            double grangerValue = 0.0;
-            double ccmValue = 0.0;
-            if (selected == "Granger")
-                grangerValue = _grangerAnalyzer.ComputeCausality(source, target, lag);
+        
 
-            if (selected == "CCM")
-                ccmValue = _ccmAnalyzer.ComputeCausality(source, target, embeddingDim, delay);
+        private async Task<PairCausalityResult> AnalyzePairAsync(
+            int masterIndex,
+            string sourceFieldName,
+            string targetFieldName,
+            int lagCount,
+            int embeddingDimension,
+            int embeddingDelay,
+            Dictionary<string, FieldSeries> telemetryByField)
+        {
+            List<double> sourceSeries =
+                telemetryByField.ContainsKey(sourceFieldName)
+                    ? telemetryByField[sourceFieldName].Values
+                    : new List<double>();
 
-            if (selected == "Granger" && grangerValue < ConstantAlgorithm.GRANGER_CAUSALITY_THRESHOLD || pearson >= ConstantAlgorithm.PEARSON_STRONG_THRESHOLD)
-                await _flightTelemetryMongoProxy.StoreConnectionsAsync(masterIndex, xField, yField);
+            List<double> targetSeries =
+                telemetryByField.ContainsKey(targetFieldName)
+                    ? telemetryByField[targetFieldName].Values
+                    : new List<double>();
 
-            
+            CausalitySelectionResult selection =
+                autoSelector.SelectAlgorithm(sourceSeries, targetSeries);
 
-            return new
+            CausalityAlgorithm algorithm = selection.SelectedAlgorithm;
+            double pearson = selection.PearsonCorrelation;
+
+            double grangerScore = 0.0;
+            double ccmScore = 0.0;
+
+            if (algorithm == CausalityAlgorithm.Granger)
+            {
+                grangerScore = grangerCausalityAnalyzer
+                    .ComputeCausality(sourceSeries, targetSeries, lagCount);
+            }
+
+            if (algorithm == CausalityAlgorithm.Ccm)
+            {
+                ccmScore = ccmCausalityAnalyzer
+                    .ComputeCausality(
+                        sourceSeries,
+                        targetSeries,
+                        embeddingDimension,
+                        embeddingDelay);
+            }
+
+            bool shouldStore =
+                (algorithm == CausalityAlgorithm.Granger &&
+                    grangerScore >= ConstantAlgorithm.GRANGER_CAUSALITY_THRESHOLD)
+                ||
+                (algorithm == CausalityAlgorithm.Ccm &&
+                    ccmScore >= ConstantAlgorithm.CCM_CAUSALITY_THRESHOLD)
+                ||
+                (Math.Abs(pearson) >= ConstantAlgorithm.PEARSON_STRONG_THRESHOLD);
+
+            if (shouldStore)
+            {
+                pendingConnections.Add(
+                    new ConnectionResult(
+                        masterIndex,
+                        sourceFieldName,
+                        targetFieldName,
+                        algorithm));
+            }
+
+            return new PairCausalityResult
             {
                 MasterIndex = masterIndex,
-                XField = xField,
-                YField = yField,
-                SelectedAlgorithm = selected,
-                Reasoning = reason,
-                GrangerValue = grangerValue,
-                CcmValue = ccmValue
+                SourceField = sourceFieldName,
+                TargetField = targetFieldName,
+                SelectedAlgorithm = algorithm,
+                GrangerValue = grangerScore,
+                CcmValue = ccmScore
             };
         }
     }
