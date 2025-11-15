@@ -1,8 +1,10 @@
 ﻿using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
+using Analyzer_Service.Models.Interface.Algorithms.Clustering;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Schema;
+using Analyzer_Service.Services;
 using Analyzer_Service.Services.Mongo;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -19,6 +21,8 @@ namespace Analyzer_Service.Controllers
         private readonly IFlightCausality _flightCausality;
         private readonly ICcmCausalityAnalyzer _ccmAnalyzer;
         private readonly IChangePointDetectionService _changePointDetectionService;
+        private readonly ISegmentClassificationService _segmentClassifier;
+
 
         public TelemetryAnalyzerController(
             IFlightTelemetryMongoProxy flightTelemetryMongoProxy,
@@ -26,7 +30,9 @@ namespace Analyzer_Service.Controllers
             IPrepareFlightData flightDataPreparer,
             IFlightCausality flightCausalityService,
             ICcmCausalityAnalyzer ccmAnalyzer,
-            IChangePointDetectionService changePointDetectionService)
+            IChangePointDetectionService changePointDetectionService,
+            ISegmentClassificationService segmentClassifier
+)
         {
             _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
             _grangerAnalyzer = grangerCausalityAnalyzer;
@@ -34,6 +40,8 @@ namespace Analyzer_Service.Controllers
             _flightCausality = flightCausalityService;
             _ccmAnalyzer = ccmAnalyzer;
             _changePointDetectionService = changePointDetectionService;
+            _segmentClassifier = segmentClassifier;
+
         }
 
         [HttpGet("fields/{masterIndex}")]
@@ -70,6 +78,13 @@ namespace Analyzer_Service.Controllers
         public async Task<IActionResult> GetChangePoints(int masterIndex, string fieldName)
         {
             return Ok(await _changePointDetectionService.DetectChangePointsAsync(masterIndex, fieldName));
+        }
+
+        [HttpGet("segments/{masterIndex}/{fieldName}")]
+        public async Task<IActionResult> GetSegmentsWithLabels(int masterIndex, string fieldName)
+        {
+            var result = await _segmentClassifier.ClassifyAsync(masterIndex, fieldName);
+            return Ok(result);
         }
 
     }

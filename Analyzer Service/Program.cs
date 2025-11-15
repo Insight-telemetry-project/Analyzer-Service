@@ -2,9 +2,11 @@ using Analyzer_Service.Models.Algorithms;
 using Analyzer_Service.Models.Configuration;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
+using Analyzer_Service.Models.Interface.Algorithms.Clustering;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt.Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Mongo;
+using Analyzer_Service.Services;
 using Analyzer_Service.Services.Algorithms;
 using Analyzer_Service.Services.Algorithms.Ccm;
 using Analyzer_Service.Services.Algorithms.Pelt;
@@ -33,6 +35,8 @@ builder.Services.AddSingleton<IChangePointDetectionService, ChangePointDetection
 builder.Services.AddSingleton<ISignalPreprocessor, SignalPreprocessor>();
 builder.Services.AddSingleton<IPeltAlgorithm, PeltAlgorithm>();
 builder.Services.AddSingleton<IRbfKernelCost, RbfKernelCost>();
+builder.Services.AddSingleton<ISegmentClassificationService, SegmentClassificationService>();
+
 
 
 

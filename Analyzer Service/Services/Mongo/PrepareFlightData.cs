@@ -31,6 +31,25 @@ namespace Analyzer_Service.Services.Mongo
 
             return (xSeries, ySeries);
         }
+        public async Task<List<double>> PrepareYAsync(int masterIndex, string fieldName)
+        {
+            List<TelemetrySensorFields> records =
+                await _telemetryMongo.GetFromFieldsAsync(masterIndex);
+
+            List<TelemetrySensorFields> ordered =
+                records.OrderBy(record => record.Timestep).ToList();
+
+            List<double> ySeries = new();
+
+            foreach (TelemetrySensorFields record in ordered)
+            {
+                if (record.Fields.TryGetValue(fieldName, out double val))
+                    ySeries.Add(val);
+            }
+
+            return ySeries;
+        }
+
 
     }
 }
