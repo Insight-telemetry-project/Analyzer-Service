@@ -4,10 +4,10 @@
     {
         double[] ApplyHampel(double[] inputValues, int windowSize, double sigma);
 
-        List<double> ApplyZScore(IReadOnlyList<double> values);
+        List<double> ApplyZScore(double[] values);
 
         double ComputeMedian(double[] values);
 
-        double ComputeMean(IReadOnlyList<double> values, int startIndex, int endIndex);
+        double ComputeMean(List<double> values, int startIndex, int endIndex);
     }
 }

@@ -1,26 +1,29 @@
-﻿namespace Analyzer_Service.Models.Interface.Algorithms
+﻿using Analyzer_Service.Models.Algorithms;
+using Analyzer_Service.Models.Dto;
+
+namespace Analyzer_Service.Models.Interface.Algorithms
 {
     public interface IFeatureExtractionUtility
     {
-        double[] ExtractFeatures(
-            IReadOnlyList<double> timeSeries,
-            IReadOnlyList<double> processedSignal,
-            int startIndex,
-            int endIndex,
-            double previousMean,
-            double nextMean);
-
-        List<(int StartIndex, int EndIndex)> BuildSegments(
+        List<SegmentBoundary> BuildSegmentsFromPoints(
             List<int> boundaries,
             int sampleCount);
 
+        double[] ExtractFeatures(
+    List<double> timeSeries,
+    List<double> processedSignal,
+    SegmentBoundary segment,
+    double previousMean,
+    double nextMean);
+
+
         int CountPeaks(
-            IReadOnlyList<double> signal,
+            List<double> signal,
             int startIndex,
             int endIndex);
 
         int CountTroughs(
-            IReadOnlyList<double> signal,
+            List<double> signal,
             int startIndex,
             int endIndex);
     }

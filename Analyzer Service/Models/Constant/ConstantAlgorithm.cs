@@ -18,5 +18,10 @@
         public const double Epsilon = 1e-12;
         public const double MadToStdScale = 1.4826;
 
+
+        public const int HAMPEL_WINDOW = 21;
+        public const double HAMPEL_SIGMA = 3.0;
+
+        public const double THRESHOLD_FORMULA = 1.4826;
     }
 }

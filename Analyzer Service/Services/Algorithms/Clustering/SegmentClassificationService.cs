@@ -1,10 +1,10 @@
-﻿using Analyzer_Service.Models.Dto;
+﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Clustering;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Services.Algorithms.Clustering;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -21,9 +21,6 @@ namespace Analyzer_Service.Services
         private readonly IFeatureExtractionUtility featureExtractionUtility;
         private readonly JsonDocument modelDocument;
 
-        private const int HampelWindow = 21;
-        private const double HampelSigma = 3.0;
-
         public SegmentClassificationService(
             IPrepareFlightData flightDataPreparer,
             IChangePointDetectionService changePointDetectionService,
@@ -35,107 +32,126 @@ namespace Analyzer_Service.Services
             this.signalProcessingUtility = signalProcessingUtility;
             this.featureExtractionUtility = featureExtractionUtility;
 
-            string jsonText = File.ReadAllText("Models/Ml/E1_EGT1_rf.json");
-            this.modelDocument = JsonDocument.Parse(jsonText);
+            string jsonContent = File.ReadAllText(ConstantRandomForest.ML_FILE_PATH);
+            this.modelDocument = JsonDocument.Parse(jsonContent);
         }
 
         public async Task<List<SegmentClassificationResult>> ClassifyAsync(int masterIndex, string fieldName)
         {
-            (List<double> timeSeries, List<double> signalSeries) =
-                await flightDataPreparer.PrepareFlightDataAsync(
-                    masterIndex,
-                    "timestep",
-                    fieldName);
+            (List<double> timeSeries, List<double> signalSeries) =await LoadFlightData(masterIndex, fieldName);
 
-            int sampleCount = signalSeries.Count;
+            List<SegmentBoundary> detectedSegments =await DetectSegments(masterIndex, fieldName, signalSeries.Count);
 
-            List<int> detectedChangePoints =
-                await changePointDetectionService.DetectChangePointsAsync(
-                    masterIndex,
-                    fieldName);
+            List<double> normalizedSignal =PreprocessSignal(signalSeries);
 
-            detectedChangePoints = detectedChangePoints
+            List<double> meanValues = ComputeMeansPerSegment(normalizedSignal, detectedSegments);
+
+            List<SegmentClassificationResult> results =
+                ClassifySegments(timeSeries, normalizedSignal, detectedSegments, meanValues);
+
+            return results;
+        }
+
+        private async Task<(List<double> TimeSeries, List<double> SignalSeries)> LoadFlightData(int masterIndex, string fieldName)
+        {
+            (List<double> TimeSeries, List<double> SignalSeries) =
+                await flightDataPreparer.PrepareFlightDataAsync(masterIndex,ConstantFligth.TIMESTEP_COL,fieldName);
+
+            return (TimeSeries, SignalSeries);
+        }
+
+        private async Task<List<SegmentBoundary>> DetectSegments(int masterIndex, string fieldName, int sampleCount)
+        {
+            List<int> rawBoundaries =
+                await changePointDetectionService.DetectChangePointsAsync(masterIndex,fieldName);
+
+            List<int> cleanedBoundaries =
+                rawBoundaries
                 .Distinct()
                 .Where(boundary => boundary > 0 && boundary < sampleCount)
                 .OrderBy(boundary => boundary)
                 .ToList();
 
-            if (!detectedChangePoints.Contains(sampleCount))
+            if (!cleanedBoundaries.Contains(sampleCount))
             {
-                detectedChangePoints.Add(sampleCount);
+                cleanedBoundaries.Add(sampleCount);
             }
 
-            List<(int StartIndex, int EndIndex)> segmentBoundaries =
-                featureExtractionUtility.BuildSegments(
-                    detectedChangePoints,
-                    sampleCount);
+            List<SegmentBoundary> segments = featureExtractionUtility.BuildSegmentsFromPoints(cleanedBoundaries, sampleCount);
 
-            double[] filteredSignal =
-                signalProcessingUtility.ApplyHampel(
-                    signalSeries.ToArray(),
-                    HampelWindow,
-                    HampelSigma);
+            return segments;
+        }
 
-            List<double> normalizedSignal =
-                signalProcessingUtility.ApplyZScore(
-                    filteredSignal);
+        private List<double> PreprocessSignal(List<double> signal)
+        {
+            double[] filteredValues =
+                signalProcessingUtility.ApplyHampel(signal.ToArray(),ConstantAlgorithm.HAMPEL_WINDOW,ConstantAlgorithm.HAMPEL_SIGMA);
 
-            List<double> meanPerSegment =
-                new List<double>(segmentBoundaries.Count);
+            List<double> normalizedValues = signalProcessingUtility.ApplyZScore(filteredValues);
 
-            for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
+            return normalizedValues;
+        }
+
+        private List<double> ComputeMeansPerSegment(List<double> normalizedSignal, List<SegmentBoundary> segments)
+        {
+            List<double> meanValues = new List<double>(segments.Count);
+
+            for (int segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
             {
-                int startIndex = segmentBoundaries[segmentIndex].StartIndex;
-                int endIndex = segmentBoundaries[segmentIndex].EndIndex;
+                int startIndex = segments[segmentIndex].StartIndex;
+                int endIndex = segments[segmentIndex].EndIndex;
 
-                double meanValue =
-                    signalProcessingUtility.ComputeMean(
-                        normalizedSignal,
-                        startIndex,
-                        endIndex);
+                double segmentMean =signalProcessingUtility.ComputeMean(normalizedSignal,startIndex,endIndex);
 
-                meanPerSegment.Add(meanValue);
+                meanValues.Add(segmentMean);
             }
 
-            List<SegmentClassificationResult> resultList =
-                new List<SegmentClassificationResult>(segmentBoundaries.Count);
+            return meanValues;
+        }
 
-            for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
+        private List<SegmentClassificationResult> ClassifySegments(List<double> timeSeries,List<double> normalizedSignal,
+            List<SegmentBoundary> segments, List<double> meanValues)
+        {
+            List<SegmentClassificationResult> classificationResults =
+                new List<SegmentClassificationResult>(segments.Count);
+
+            for (int segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
             {
-                int startIndex = segmentBoundaries[segmentIndex].StartIndex;
-                int endIndex = segmentBoundaries[segmentIndex].EndIndex;
+                int startIndex = segments[segmentIndex].StartIndex;
+                int endIndex = segments[segmentIndex].EndIndex;
 
                 double previousMean =
                     segmentIndex > 0
-                    ? meanPerSegment[segmentIndex - 1]
+                    ? meanValues[segmentIndex - 1]
                     : 0.0;
 
                 double nextMean =
-                    segmentIndex < meanPerSegment.Count - 1
-                    ? meanPerSegment[segmentIndex + 1]
+                    segmentIndex < meanValues.Count - 1
+                    ? meanValues[segmentIndex + 1]
                     : 0.0;
+
+                SegmentBoundary currentSegment = segments[segmentIndex];
 
                 double[] featureVector =
                     featureExtractionUtility.ExtractFeatures(
                         timeSeries,
                         normalizedSignal,
-                        startIndex,
-                        endIndex,
+                        currentSegment,
                         previousMean,
                         nextMean);
 
                 string predictedLabel =
                     MinimalRF.PredictLabel(modelDocument, featureVector);
 
-                SegmentClassificationResult classificationResult =
+                SegmentClassificationResult result =
                     new SegmentClassificationResult(
                         new SegmentBoundary(startIndex, endIndex),
                         predictedLabel);
 
-                resultList.Add(classificationResult);
+                classificationResults.Add(result);
             }
 
-            return resultList;
+            return classificationResults;
         }
     }
 }

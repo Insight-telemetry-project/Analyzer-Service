@@ -1,4 +1,5 @@
-﻿using Analyzer_Service.Models.Interface.Algorithms;
+﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Interface.Algorithms;
 
 namespace Analyzer_Service.Services.Algorithms
 {
@@ -39,7 +40,7 @@ namespace Analyzer_Service.Services.Algorithms
                 }
 
                 double mad = ComputeMedian(absoluteDeviation);
-                double threshold = sigma * 1.4826 * (mad + 1e-12);
+                double threshold = sigma * ConstantAlgorithm.THRESHOLD_FORMULA * (mad + ConstantAlgorithm.Epsilon);
 
                 if (Math.Abs(inputValues[index] - median) > threshold)
                 {
@@ -50,14 +51,14 @@ namespace Analyzer_Service.Services.Algorithms
             return outputValues;
         }
 
-        public List<double> ApplyZScore(IReadOnlyList<double> values)
+        public List<double> ApplyZScore(double[] values)
         {
-            int count = values.Count;
+            int count = values.Length;
 
             double sum = 0.0;
             for (int index = 0; index < count; index++)
             {
-                sum = sum + values[index];
+                sum += values[index];
             }
 
             double mean = sum / count;
@@ -66,24 +67,24 @@ namespace Analyzer_Service.Services.Algorithms
             for (int index = 0; index < count; index++)
             {
                 double delta = values[index] - mean;
-                varianceSum = varianceSum + delta * delta;
+                varianceSum += delta * delta;
             }
 
             double std = Math.Sqrt(varianceSum / count);
-            if (std < 1e-12)
+            if (std < ConstantAlgorithm.Epsilon)
             {
                 std = 1.0;
             }
 
-            List<double> output = new List<double>(count);
+            double[] output = new double[count];
             for (int index = 0; index < count; index++)
             {
-                double zValue = (values[index] - mean) / std;
-                output.Add(zValue);
+                output[index] = (values[index] - mean) / std;
             }
 
-            return output;
+            return output.ToList();
         }
+
 
         public double ComputeMedian(double[] values)
         {
@@ -101,7 +102,7 @@ namespace Analyzer_Service.Services.Algorithms
             return 0.5 * (sorted[midIndex - 1] + sorted[midIndex]);
         }
 
-        public double ComputeMean(IReadOnlyList<double> values, int startIndex, int endIndex)
+        public double ComputeMean(List<double> values, int startIndex, int endIndex)
         {
             double sum = 0.0;
             int count = endIndex - startIndex;

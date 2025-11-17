@@ -10,12 +10,15 @@
 
         public const string LABELS_JSON = "labels";
 
+        public const string SCALER_JSON = "scaler";
+
         public const string SCALE_JSON = "scale";
         public const string MEAN_JSON = "mean";
 
         public const string TREES_JSON = "trees";
         public const string FOREST_JSON = "forest";
+        public const int LEAF_NODE = -1;
 
-
+        public const string ML_FILE_PATH = "Models/Ml/E1_EGT1_rf.json";
     }
 }

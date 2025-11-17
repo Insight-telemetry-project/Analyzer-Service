@@ -21,7 +21,7 @@ namespace Analyzer_Service.Services.Algorithms.Clustering
                 double featureMean = meanEnumerator.Current.GetDouble();
                 double featureScale = scaleEnumerator.Current.GetDouble();
 
-                if (Math.Abs(featureScale) < 1e-12)
+                if (Math.Abs(featureScale) < ConstantAlgorithm.Epsilon)
                 {
                     featureScale = 1.0;
                 }
@@ -69,7 +69,7 @@ namespace Analyzer_Service.Services.Algorithms.Clustering
 
             int nodeIndex = 0;
 
-            while (leftChildPerNode[nodeIndex] != -1)
+            while (leftChildPerNode[nodeIndex] != ConstantRandomForest.LEAF_NODE)
             {
                 int featureIndex = featureIndexPerNode[nodeIndex];
                 double featureValue = scaledFeatureVector[featureIndex];
@@ -97,8 +97,8 @@ namespace Analyzer_Service.Services.Algorithms.Clustering
 
             double[] scaledFeatureVector = Scale(
                 rawFeatureVector,
-                rootElement.GetProperty(ConstantRandomForest.SCALE_JSON).GetProperty(ConstantRandomForest.MEAN_JSON),
-                rootElement.GetProperty(ConstantRandomForest.SCALE_JSON).GetProperty(ConstantRandomForest.SCALE_JSON));
+                rootElement.GetProperty(ConstantRandomForest.SCALER_JSON).GetProperty(ConstantRandomForest.MEAN_JSON),
+                rootElement.GetProperty(ConstantRandomForest.SCALER_JSON).GetProperty(ConstantRandomForest.SCALE_JSON));
 
             string[] classLabels = rootElement
                 .GetProperty(ConstantRandomForest.LABELS_JSON)

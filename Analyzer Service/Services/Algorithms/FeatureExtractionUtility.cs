@@ -1,4 +1,5 @@
-﻿using Analyzer_Service.Models.Interface.Algorithms;
+﻿using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Interface.Algorithms;
 
 namespace Analyzer_Service.Services.Algorithms
 {
@@ -11,23 +12,21 @@ namespace Analyzer_Service.Services.Algorithms
             this.signalProcessingUtility = signalProcessingUtility;
         }
 
-        public List<(int StartIndex, int EndIndex)> BuildSegments(
-            List<int> boundaries,
-            int sampleCount)
+        public List<SegmentBoundary> BuildSegmentsFromPoints(List<int> boundaries,int sampleCount)
         {
-            List<(int StartIndex, int EndIndex)> segments =
-                new List<(int StartIndex, int EndIndex)>();
+            List<SegmentBoundary> segments = new List<SegmentBoundary>();
 
             int currentStart = 0;
 
-            for (int i = 0; i < boundaries.Count; i++)
+            for (int index = 0; index < boundaries.Count; index++)
             {
-                int boundary = boundaries[i];
+                int boundary = boundaries[index];
                 int endExclusive = boundary;
 
                 if (endExclusive > currentStart + 1)
                 {
-                    segments.Add((currentStart, endExclusive));
+                    SegmentBoundary segment = new SegmentBoundary(currentStart, endExclusive);
+                    segments.Add(segment);
                 }
 
                 currentStart = endExclusive;
@@ -36,14 +35,12 @@ namespace Analyzer_Service.Services.Algorithms
             return segments;
         }
 
-        public double[] ExtractFeatures(
-            IReadOnlyList<double> timeSeries,
-            IReadOnlyList<double> processedSignal,
-            int startIndex,
-            int endIndex,
-            double previousMean,
-            double nextMean)
+
+        public double[] ExtractFeatures(List<double> timeSeries,List<double> processedSignal,SegmentBoundary segment,double previousMean,double nextMean)
         {
+            int startIndex = segment.StartIndex;
+            int endIndex = segment.EndIndex;
+
             int length = endIndex - startIndex;
 
             double startTime = timeSeries[startIndex];
@@ -91,23 +88,11 @@ namespace Analyzer_Service.Services.Algorithms
             double validatedNext = double.IsNaN(nextMean) ? 0.0 : nextMean;
 
             return new double[]
-            {
-                duration,
-                mean,
-                std,
-                minValue,
-                maxValue,
-                range,
-                energy,
-                slope,
-                peakCount,
-                troughCount,
-                validatedPrev,
-                validatedNext
-            };
+            {duration,mean,std,minValue,maxValue,range,energy,slope,peakCount,troughCount,validatedPrev,validatedNext};
         }
 
-        public int CountPeaks(IReadOnlyList<double> signal, int startIndex, int endIndex)
+
+        public int CountPeaks(List<double> signal, int startIndex, int endIndex)
         {
             int length = endIndex - startIndex;
             int minimumDistance = Math.Max((int)Math.Floor(0.05 * length), 1);
@@ -118,12 +103,12 @@ namespace Analyzer_Service.Services.Algorithms
             for (int index = startIndex + 1; index < endIndex - 1; index++)
             {
                 double prev = signal[index - 1];
-                double curr = signal[index];
+                double current = signal[index];
                 double next = signal[index + 1];
 
-                double prominence = Math.Abs(curr - 0.5 * (prev + next));
+                double prominence = Math.Abs(current - 0.5 * (prev + next));
 
-                bool isPeak = curr > prev && curr > next && prominence >= 0.5;
+                bool isPeak = current > prev && current > next && prominence >= 0.5;
 
                 if (isPeak && (index - lastIndex) >= minimumDistance)
                 {
@@ -135,7 +120,7 @@ namespace Analyzer_Service.Services.Algorithms
             return count;
         }
 
-        public int CountTroughs(IReadOnlyList<double> signal, int startIndex, int endIndex)
+        public int CountTroughs(List<double> signal, int startIndex, int endIndex)
         {
             int length = endIndex - startIndex;
             int minimumDistance = Math.Max((int)Math.Floor(0.05 * length), 1);
