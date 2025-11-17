@@ -1,78 +1,70 @@
 ﻿using System;
 using System.Linq;
 using System.Text.Json;
-
+using Analyzer_Service.Models.Constant;
 namespace Analyzer_Service.Services.Algorithms.Clustering
 {
     public static class MinimalRF
     {
-        // -----------------------------
-        //  Scaling (StandardScaler)
-        // -----------------------------
-        public static double[] Scale(double[] features, JsonElement meanElement, JsonElement scaleElement)
+        public static double[] Scale(double[] featureVector, JsonElement meanElement, JsonElement scaleElement)
         {
-            int featureCount = features.Length;
-            double[] scaled = new double[featureCount];
+            int featureCount = featureVector.Length;
+            double[] scaledVector = new double[featureCount];
 
-            using (JsonElement.ArrayEnumerator meanEnumerator = meanElement.EnumerateArray())
-            using (JsonElement.ArrayEnumerator scaleEnumerator = scaleElement.EnumerateArray())
+            JsonElement.ArrayEnumerator meanEnumerator = meanElement.EnumerateArray();
+            JsonElement.ArrayEnumerator scaleEnumerator = scaleElement.EnumerateArray();
+
+            for (int featureIndex = 0; featureIndex < featureCount; featureIndex++)
             {
-                for (int featureIndex = 0; featureIndex < featureCount; featureIndex++)
+                bool hasMean = meanEnumerator.MoveNext();
+                bool hasScale = scaleEnumerator.MoveNext();
+                double featureMean = meanEnumerator.Current.GetDouble();
+                double featureScale = scaleEnumerator.Current.GetDouble();
+
+                if (Math.Abs(featureScale) < 1e-12)
                 {
-                    if (!meanEnumerator.MoveNext() || !scaleEnumerator.MoveNext())
-                    {
-                        throw new InvalidOperationException("Scaler arrays length does not match feature vector length.");
-                    }
-
-                    double mean = meanEnumerator.Current.GetDouble();
-                    double scale = scaleEnumerator.Current.GetDouble();
-                    if (Math.Abs(scale) < 1e-12)
-                    {
-                        scale = 1.0;
-                    }
-
-                    scaled[featureIndex] = (features[featureIndex] - mean) / scale;
+                    featureScale = 1.0;
                 }
+
+                double rawFeatureValue = featureVector[featureIndex];
+                double scaledValue = (rawFeatureValue - featureMean) / featureScale;
+                scaledVector[featureIndex] = scaledValue;
             }
 
-            return scaled;
+            return scaledVector;
         }
 
-        // -----------------------------
-        //  Predict one decision tree
-        // -----------------------------
-        public static int PredictTree(JsonElement treeElement, double[] scaledFeatures)
+        public static int PredictTree(JsonElement treeElement, double[] scaledFeatureVector)
         {
             int[] featureIndexPerNode = treeElement
-                .GetProperty("feature")
+                .GetProperty(ConstantRandomForest.FEATURE_JSON)
                 .EnumerateArray()
                 .Select(element => element.GetInt32())
                 .ToArray();
 
             double[] thresholdPerNode = treeElement
-                .GetProperty("threshold")
+                .GetProperty(ConstantRandomForest.THRESHOLD_JSON)
                 .EnumerateArray()
                 .Select(element => element.GetDouble())
                 .ToArray();
 
             int[] leftChildPerNode = treeElement
-                .GetProperty("children_left")
+                .GetProperty(ConstantRandomForest.CHILDREN_LEFT_JSON)
                 .EnumerateArray()
                 .Select(element => element.GetInt32())
                 .ToArray();
 
             int[] rightChildPerNode = treeElement
-                .GetProperty("children_right")
+                .GetProperty(ConstantRandomForest.CHILDREN_RIGHT_JSON)
                 .EnumerateArray()
                 .Select(element => element.GetInt32())
                 .ToArray();
 
-            // value is shape: [n_nodes][n_classes]
-            double[][] valueMatrix = treeElement
-                .GetProperty("value")
+            double[][] classValuesPerNode = treeElement
+                .GetProperty(ConstantRandomForest.VALUE_JSON)
                 .EnumerateArray()
                 .Select(nodeElement =>
-                    nodeElement.EnumerateArray().Select(v => v.GetDouble()).ToArray())
+                    nodeElement.EnumerateArray().Select(classElement => classElement.GetDouble()).ToArray())
                 .ToArray();
 
             int nodeIndex = 0;
@@ -80,17 +72,10 @@ namespace Analyzer_Service.Services.Algorithms.Clustering
             while (leftChildPerNode[nodeIndex] != -1)
             {
                 int featureIndex = featureIndexPerNode[nodeIndex];
+                double featureValue = scaledFeatureVector[featureIndex];
+                double thresholdValue = thresholdPerNode[nodeIndex];
 
-                if (featureIndex < 0 || featureIndex >= scaledFeatures.Length)
-                {
-                    throw new InvalidOperationException(
-                        $"Tree expects feature index {featureIndex}, but feature vector length is {scaledFeatures.Length}.");
-                }
-
-                double value = scaledFeatures[featureIndex];
-                double threshold = thresholdPerNode[nodeIndex];
-
-                if (value <= threshold)
+                if (featureValue <= thresholdValue)
                 {
                     nodeIndex = leftChildPerNode[nodeIndex];
                 }
@@ -100,39 +85,37 @@ namespace Analyzer_Service.Services.Algorithms.Clustering
                 }
             }
 
-            double[] leafClassValues = valueMatrix[nodeIndex];
-            int bestClassIndex = Array.IndexOf(leafClassValues, leafClassValues.Max());
-            return bestClassIndex;
+            double[] leafClassProbabilities = classValuesPerNode[nodeIndex];
+            int predictedClassIndex = Array.IndexOf(leafClassProbabilities, leafClassProbabilities.Max());
+
+            return predictedClassIndex;
         }
 
-        // -----------------------------
-        //  Predict whole forest
-        // -----------------------------
-        public static string PredictLabel(JsonDocument modelDocument, double[] rawFeatures)
+        public static string PredictLabel(JsonDocument modelDocument, double[] rawFeatureVector)
         {
-            JsonElement root = modelDocument.RootElement;
+            JsonElement rootElement = modelDocument.RootElement;
 
-            double[] scaledFeatures = Scale(
-                rawFeatures,
-                root.GetProperty("scaler").GetProperty("mean"),
-                root.GetProperty("scaler").GetProperty("scale"));
+            double[] scaledFeatureVector = Scale(
+                rawFeatureVector,
+                rootElement.GetProperty(ConstantRandomForest.SCALE_JSON).GetProperty(ConstantRandomForest.MEAN_JSON),
+                rootElement.GetProperty(ConstantRandomForest.SCALE_JSON).GetProperty(ConstantRandomForest.SCALE_JSON));
 
-            string[] labels = root
-                .GetProperty("labels")
+            string[] classLabels = rootElement
+                .GetProperty(ConstantRandomForest.LABELS_JSON)
                 .EnumerateArray()
                 .Select(element => element.GetString())
                 .ToArray();
 
-            double[] votesPerClass = new double[labels.Length];
+            double[] voteCountPerClass = new double[classLabels.Length];
 
-            foreach (JsonElement treeElement in root.GetProperty("forest").GetProperty("trees").EnumerateArray())
+            foreach (JsonElement treeElement in rootElement.GetProperty(ConstantRandomForest.FOREST_JSON).GetProperty(ConstantRandomForest.TREES_JSON).EnumerateArray())
             {
-                int predictedClassIndex = PredictTree(treeElement, scaledFeatures);
-                votesPerClass[predictedClassIndex] += 1.0;
+                int predictedClassIndex = PredictTree(treeElement, scaledFeatureVector);
+                voteCountPerClass[predictedClassIndex] += 1.0;
             }
 
-            int bestClassIndex = Array.IndexOf(votesPerClass, votesPerClass.Max());
-            return labels[bestClassIndex];
+            int finalClassIndex = Array.IndexOf(voteCountPerClass, voteCountPerClass.Max());
+            return classLabels[finalClassIndex];
         }
     }
 }

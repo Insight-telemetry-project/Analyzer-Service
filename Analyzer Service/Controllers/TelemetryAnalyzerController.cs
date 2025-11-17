@@ -1,4 +1,5 @@
-﻿using Analyzer_Service.Models.Interface.Algorithms;
+﻿using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
 using Analyzer_Service.Models.Interface.Algorithms.Clustering;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
@@ -83,7 +84,7 @@ namespace Analyzer_Service.Controllers
         [HttpGet("segments/{masterIndex}/{fieldName}")]
         public async Task<IActionResult> GetSegmentsWithLabels(int masterIndex, string fieldName)
         {
-            var result = await _segmentClassifier.ClassifyAsync(masterIndex, fieldName);
+            List<SegmentClassificationResult> result = await _segmentClassifier.ClassifyAsync(masterIndex, fieldName);
             return Ok(result);
         }
 

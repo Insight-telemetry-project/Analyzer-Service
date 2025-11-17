@@ -36,6 +36,8 @@ builder.Services.AddSingleton<ISignalPreprocessor, SignalPreprocessor>();
 builder.Services.AddSingleton<IPeltAlgorithm, PeltAlgorithm>();
 builder.Services.AddSingleton<IRbfKernelCost, RbfKernelCost>();
 builder.Services.AddSingleton<ISegmentClassificationService, SegmentClassificationService>();
+builder.Services.AddSingleton<ISignalProcessingUtility, SignalProcessingUtility>();
+builder.Services.AddSingleton<IFeatureExtractionUtility, FeatureExtractionUtility>();
 
 
 

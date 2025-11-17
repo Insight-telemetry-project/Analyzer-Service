@@ -1,4 +1,5 @@
 ﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt.Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Mongo;
@@ -10,21 +11,22 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         private readonly IPrepareFlightData flightDataPreparer;
         private readonly ISignalPreprocessor signalPreprocessor;
         private readonly IPeltAlgorithm peltAlgorithm;
+        private readonly ISignalProcessingUtility signalProcessingUtility;
 
         public ChangePointDetectionService(
             IPrepareFlightData flightDataPreparer,
             ISignalPreprocessor signalPreprocessor,
-            IPeltAlgorithm peltAlgorithm)
+            IPeltAlgorithm peltAlgorithm,
+            ISignalProcessingUtility signalProcessingUtility)
         {
             this.flightDataPreparer = flightDataPreparer;
             this.signalPreprocessor = signalPreprocessor;
             this.peltAlgorithm = peltAlgorithm;
+            this.signalProcessingUtility = signalProcessingUtility;
         }
 
         public async Task<List<int>> DetectChangePointsAsync(int masterIndex, string targetFieldName)
         {
-            
-
             (List<double> timeSeries, List<double> signalSeries) =
                 await flightDataPreparer.PrepareFlightDataAsync(
                     masterIndex,
@@ -33,98 +35,70 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                 );
 
             List<double> cleanedSignal =
-                signalPreprocessor.Apply(signalSeries, ConstantPelt.HAMPEL_WINDOWSIZE, ConstantPelt.HAMPEL_SIGMA_THRESHOLD)
-                .ToList();
+                signalPreprocessor
+                    .Apply(signalSeries, ConstantPelt.HAMPEL_WINDOWSIZE, ConstantPelt.HAMPEL_SIGMA_THRESHOLD)
+                    .ToList();
 
-            double samplingFrequency = EstimateSamplingFrequency(timeSeries);
+            double samplingFrequency = ComputeSamplingFrequency(timeSeries);
 
-            int minimumSegmentSampleCount =
+            int minimumSegmentSamples =
                 (int)Math.Round(samplingFrequency * ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS);
 
-            List<int> rawDetectedBreakpoints =
+            List<int> rawBreakpoints =
                 peltAlgorithm
-                .DetectChangePoints(cleanedSignal, minimumSegmentSampleCount, ConstantPelt.SAMPLING_JUMP, ConstantPelt.PENALTY_BETA)
-                .ToList();
+                    .DetectChangePoints(
+                        cleanedSignal,
+                        minimumSegmentSamples,
+                        ConstantPelt.SAMPLING_JUMP,
+                        ConstantPelt.PENALTY_BETA)
+                    .ToList();
 
-            List<int> filteredBreakpoints =
-                EnforceMinimumChangePointGap(
-                    rawDetectedBreakpoints,
-                    timeSeries.ToArray(),
-                    ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS
-                );
+            List<int> filtered =
+                ApplyMinimumGap(rawBreakpoints, timeSeries.ToArray(), ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS);
 
-            return filteredBreakpoints;
+            return filtered;
         }
 
-        private static double EstimateSamplingFrequency(IReadOnlyList<double> timeSeries)
+        private double ComputeSamplingFrequency(IReadOnlyList<double> timeSeries)
         {
-            int sampleCount = timeSeries.Count;
-            double[] sampleDifferences = new double[sampleCount - 1];
+            int count = timeSeries.Count - 1;
 
-            for (int index = 0; index < sampleCount - 1; index++)
+            double[] differences = new double[count];
+            for (int index = 0; index < count; index++)
             {
-                sampleDifferences[index] = timeSeries[index + 1] - timeSeries[index];
+                differences[index] = timeSeries[index + 1] - timeSeries[index];
             }
 
-            List<double> positiveDifferences = new List<double>();
+            double median = signalProcessingUtility.ComputeMedian(differences);
+            return 1.0 / median;
+        }
 
-            foreach (double difference in sampleDifferences)
+        private List<int> ApplyMinimumGap(List<int> breakpoints, double[] timeSeries, double minGap)
+        {
+            List<int> result = new List<int>();
+            double lastTime = double.NegativeInfinity;
+
+            for (int i = 0; i < breakpoints.Count; i++)
             {
-                if (difference > 0.0)
+                int index = breakpoints[i];
+                double timeValue = timeSeries[index - 1];
+
+                if (result.Count == 0 || timeValue - lastTime >= minGap)
                 {
-                    positiveDifferences.Add(difference);
+                    result.Add(index);
+                    lastTime = timeValue;
                 }
             }
 
-            positiveDifferences.Sort();
-            int differenceCount = positiveDifferences.Count;
+            int finalIndex = timeSeries.Length;
+            int last = result.Count - 1;
 
-            double medianDifference;
-            if (differenceCount % 2 == 1)
+            if (result[last] != finalIndex)
             {
-                medianDifference = positiveDifferences[differenceCount / 2];
-            }
-            else
-            {
-                medianDifference =
-                    0.5 * (positiveDifferences[differenceCount / 2 - 1] +
-                           positiveDifferences[differenceCount / 2]);
+                result[last] = finalIndex;
             }
 
-            return 1.0 / medianDifference;
-        }
-
-
-        private static List<int> EnforceMinimumChangePointGap(
-            List<int> detectedBreakpoints,
-            double[] timeSeries,
-            double minimumGapSeconds)
-        {
-            List<int> filteredBreakpoints = new List<int>();
-            double lastAcceptedTime = double.NegativeInfinity;
-
-            foreach (int breakpointIndex in detectedBreakpoints)
-            {
-                double breakpointTime = timeSeries[breakpointIndex - 1];
-
-                if (filteredBreakpoints.Count == 0 ||
-                    breakpointTime - lastAcceptedTime >= minimumGapSeconds)
-                {
-                    filteredBreakpoints.Add(breakpointIndex);
-                    lastAcceptedTime = breakpointTime;
-                }
-            }
-
-            int lastTimeIndex = timeSeries.Length;
-
-            int lastBreakpointIndex = filteredBreakpoints.Count - 1;
-
-            if (filteredBreakpoints[lastBreakpointIndex] != lastTimeIndex)
-            {
-                filteredBreakpoints[lastBreakpointIndex] = lastTimeIndex;
-            }
-
-            return filteredBreakpoints;
+            return result;
         }
     }
 }
