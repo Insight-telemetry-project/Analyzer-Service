@@ -1,15 +1,19 @@
 using Analyzer_Service.Models.Algorithms;
 using Analyzer_Service.Models.Configuration;
 using Analyzer_Service.Models.Interface.Algorithms;
+using Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
 using Analyzer_Service.Models.Interface.Algorithms.Clustering;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt.Analyzer_Service.Models.Interface.Algorithms.Pelt;
+using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Services;
 using Analyzer_Service.Services.Algorithms;
+using Analyzer_Service.Services.Algorithms.AnomalyDetector;
 using Analyzer_Service.Services.Algorithms.Ccm;
 using Analyzer_Service.Services.Algorithms.Pelt;
+using Analyzer_Service.Services.Algorithms.Random_Forest;
 using Analyzer_Service.Services.Mongo;
 using MathNet.Numerics;
 
@@ -38,6 +42,11 @@ builder.Services.AddSingleton<IRbfKernelCost, RbfKernelCost>();
 builder.Services.AddSingleton<ISegmentClassificationService, SegmentClassificationService>();
 builder.Services.AddSingleton<ISignalProcessingUtility, SignalProcessingUtility>();
 builder.Services.AddSingleton<IFeatureExtractionUtility, FeatureExtractionUtility>();
+builder.Services.AddSingleton<IPatternHashingUtility, PatternHashingUtility>();
+builder.Services.AddSingleton<IAnomalyDetectionUtility, AnomalyDetectionUtility>();
+builder.Services.AddSingleton<IRandomForestModelProvider, RandomForestModelProvider>();
+builder.Services.AddSingleton<IRandomForestOperations, RandomForestOperations>();
+
 
 
 

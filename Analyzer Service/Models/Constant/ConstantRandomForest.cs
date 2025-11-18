@@ -3,6 +3,7 @@
     public class ConstantRandomForest
     {
         public const string FEATURE_JSON = "feature";
+        public const string FEATURE_NAMES_JSON = "feature_names";
         public const string THRESHOLD_JSON = "threshold";
         public const string CHILDREN_RIGHT_JSON = "children_right";
         public const string CHILDREN_LEFT_JSON = "children_left";

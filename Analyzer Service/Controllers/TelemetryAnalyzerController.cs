@@ -87,6 +87,17 @@ namespace Analyzer_Service.Controllers
             List<SegmentClassificationResult> result = await _segmentClassifier.ClassifyAsync(masterIndex, fieldName);
             return Ok(result);
         }
+        [HttpGet("segments-with-anomalies/{masterIndex}/{fieldName}")]
+        public async Task<IActionResult> GetSegmentsWithAnomalies(int masterIndex, string fieldName)
+        {
+            var result = await _segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex, fieldName);
+
+            return Ok(new
+            {
+                segments = result.Segments,
+                anomalies = result.Anomalies
+            });
+        }
 
     }
 }
