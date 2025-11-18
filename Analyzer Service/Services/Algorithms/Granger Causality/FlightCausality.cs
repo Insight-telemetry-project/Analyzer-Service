@@ -47,11 +47,7 @@ namespace Analyzer_Service.Services.Algorithms
             List<FieldPair> fieldPairs =
                 CreateFieldPairs(telemetryByField);
 
-            int lagCount =
-                Math.Max(
-                    ConstantAlgorithm.MIN_LAG,
-                    flightLength / ConstantAlgorithm.LAG_DIVISOR
-                );
+            int lagCount = Math.Max(ConstantAlgorithm.MIN_LAG,flightLength / ConstantAlgorithm.LAG_DIVISOR);
 
             ConcurrentBag<PairCausalityResult> analysisResults =
                 await ProcessAllPairsAsync(
@@ -100,7 +96,6 @@ namespace Analyzer_Service.Services.Algorithms
                 .ToList();
         }
 
-
         private async Task<ConcurrentBag<PairCausalityResult>> ProcessAllPairsAsync(
             int masterIndex,
             List<FieldPair> pairs,
@@ -128,22 +123,19 @@ namespace Analyzer_Service.Services.Algorithms
             return bag;
         }
 
-       
-
         private async Task StorePendingConnectionsAsync()
         {
-            foreach (ConnectionResult connection in pendingConnections)
+            List<ConnectionResult> allConnections = pendingConnections.ToList();
+
+            if (allConnections.Count > 0)
             {
-                await mongoProxy.StoreConnectionsAsync(
-                    connection.MasterIndex,
-                    connection.SourceField,
-                    connection.TargetField);
+                await mongoProxy.StoreConnectionsBulkAsync(allConnections);
             }
 
             pendingConnections.Clear();
         }
 
-        
+
 
         private async Task<PairCausalityResult> AnalyzePairAsync(
             int masterIndex,
@@ -189,13 +181,8 @@ namespace Analyzer_Service.Services.Algorithms
                         embeddingDelay);
             }
 
-            bool shouldStore =
-                (algorithm == CausalityAlgorithm.Granger &&
-                    grangerScore >= ConstantAlgorithm.GRANGER_CAUSALITY_THRESHOLD)
-                ||
-                (algorithm == CausalityAlgorithm.Ccm &&
-                    ccmScore >= ConstantAlgorithm.CCM_CAUSALITY_THRESHOLD)
-                ||
+            bool shouldStore = (algorithm == CausalityAlgorithm.Granger &&grangerScore >= ConstantAlgorithm.GRANGER_CAUSALITY_THRESHOLD)||
+                (algorithm == CausalityAlgorithm.Ccm &&ccmScore >= ConstantAlgorithm.CCM_CAUSALITY_THRESHOLD)||
                 (Math.Abs(pearson) >= ConstantAlgorithm.PEARSON_STRONG_THRESHOLD);
 
             if (shouldStore)

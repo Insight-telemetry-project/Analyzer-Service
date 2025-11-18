@@ -1,6 +1,7 @@
 ﻿using Analyzer_Service.Models.Configuration;
 using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Interface.Mongo;
+using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
@@ -40,19 +41,6 @@ namespace Analyzer_Service.Services.Mongo
             return results;
         }
 
-        public async Task StoreConnectionsAsync(int masterIndex, string sensorName, string connectionTarget)
-        {
-            FilterDefinition<TelemetryFlightData> filter = Builders<TelemetryFlightData>.Filter.Eq(x => x.MasterIndex, masterIndex);
-
-            UpdateDefinition<TelemetryFlightData> update = Builders<TelemetryFlightData>.Update
-                .AddToSet($"Connections.{sensorName}", connectionTarget);
-
-            await _telemetryFlightData.UpdateOneAsync(
-                filter,
-                update,
-                new UpdateOptions { IsUpsert = true }
-            );
-        }
 
         public async Task<int> GetFlightLengthAsync(int masterIndex)
         {
@@ -65,6 +53,37 @@ namespace Analyzer_Service.Services.Mongo
                 return -1;
 
             return result.Fields[ConstantFligth.FLIGHT_LENGTH];
+        }
+
+
+        public async Task StoreConnectionsBulkAsync(List<ConnectionResult> connections)
+        {
+
+            int masterIndex = connections[0].MasterIndex;
+
+            FilterDefinition<TelemetryFlightData> filter =
+                Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
+
+            List<WriteModel<TelemetryFlightData>> bulkOperations =
+                new List<WriteModel<TelemetryFlightData>>();
+
+            foreach (ConnectionResult connection in connections)
+            {
+                string sensorName = connection.SourceField;
+                string targetName = connection.TargetField;
+
+                UpdateDefinition<TelemetryFlightData> update =
+                    Builders<TelemetryFlightData>.Update
+                        .AddToSet($"Connections.{sensorName}", targetName);
+
+                UpdateOneModel<TelemetryFlightData> updateOperation =
+                    new UpdateOneModel<TelemetryFlightData>(filter, update)
+                    { IsUpsert = true };
+
+                bulkOperations.Add(updateOperation);
+            }
+
+            await _telemetryFlightData.BulkWriteAsync(bulkOperations);
         }
 
 

@@ -21,7 +21,6 @@ namespace Analyzer_Service.Services.Algorithms
                     ComputeDifferences(targetSeries));
 
             CausalityAlgorithm selectedAlgorithm;
-            string reasoning;
 
             if (Math.Abs(pearsonCorrelation) >= ConstantAlgorithm.PEARSON_LINEAR_THRESHOLD)
             {

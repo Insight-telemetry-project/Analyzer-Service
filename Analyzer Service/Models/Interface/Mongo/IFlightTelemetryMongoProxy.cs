@@ -1,4 +1,5 @@
 ﻿using Analyzer_Service.Models.Configuration;
+using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using Microsoft.Extensions.Options;
 
@@ -8,8 +9,7 @@ namespace Analyzer_Service.Models.Interface.Mongo
     {
         Task<List<TelemetrySensorFields>> GetFromFieldsAsync(int masterIndex);
         Task<List<TelemetryFlightData>> GetFromFlightDataAsync(int masterIndex);
-        Task StoreConnectionsAsync(int masterIndex, string sensorName, string connectionTarget);
         Task<int> GetFlightLengthAsync(int masterIndex);
-
+        Task StoreConnectionsBulkAsync(List<ConnectionResult> connections);
     }
 }

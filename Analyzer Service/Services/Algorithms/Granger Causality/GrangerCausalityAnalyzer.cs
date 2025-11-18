@@ -11,7 +11,6 @@ namespace Analyzer_Service.Services.Algorithms
         public double ComputeCausality(List<double> xSeries, List<double> ySeries, int lagCount)
         {
 
-            int totalSamples = xSeries.Count;
             List<double[]> yLagMatrix = BuildLagMatrix(ySeries, lagCount);
             List<double[]> xyCombinedLagMatrix = BuildCombinedLagMatrix(xSeries, ySeries, lagCount);
             List<double> targetYValues = ySeries.Skip(lagCount).ToList();
