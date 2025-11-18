@@ -115,6 +115,8 @@ namespace Analyzer_Service.Services
             List<SegmentClassificationResult> classificationResults =
                 new List<SegmentClassificationResult>(segments.Count);
 
+
+
             for (int segmentIndex = 0; segmentIndex < segments.Count; segmentIndex++)
             {
                 int startIndex = segments[segmentIndex].StartIndex;
@@ -150,8 +152,41 @@ namespace Analyzer_Service.Services
 
                 classificationResults.Add(result);
             }
-
+            classificationResults = MergeSegments(classificationResults);
             return classificationResults;
         }
+        private List<SegmentClassificationResult> MergeSegments(List<SegmentClassificationResult> segments)
+        {
+
+            List<SegmentClassificationResult> merged = new List<SegmentClassificationResult>();
+
+            SegmentClassificationResult current = segments[0];
+
+            for (int index = 1; index < segments.Count; index++)
+            {
+                SegmentClassificationResult next = segments[index];
+
+                bool sameLabel = next.Label == current.Label;
+                bool adjacent = next.Segment.StartIndex == current.Segment.EndIndex;
+
+                if (sameLabel && adjacent)
+                {
+                    current = new SegmentClassificationResult(
+                        new SegmentBoundary(current.Segment.StartIndex, next.Segment.EndIndex),
+                        current.Label
+                    );
+                }
+                else
+                {
+                    merged.Add(current);
+                    current = next;
+                }
+            }
+
+            merged.Add(current);
+
+            return merged;
+        }
+
     }
 }
