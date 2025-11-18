@@ -46,6 +46,7 @@ builder.Services.AddSingleton<IPatternHashingUtility, PatternHashingUtility>();
 builder.Services.AddSingleton<IAnomalyDetectionUtility, AnomalyDetectionUtility>();
 builder.Services.AddSingleton<IRandomForestModelProvider, RandomForestModelProvider>();
 builder.Services.AddSingleton<IRandomForestOperations, RandomForestOperations>();
+builder.Services.AddSingleton<ISegmentLogicUtility, SegmentLogicUtility>();
 
 
 

@@ -21,5 +21,8 @@
         public const int LEAF_NODE = -1;
 
         public const string ML_FILE_PATH = "Models/Ml/E1_EGT1_rf.json";
+
+        public const string RANGE_Z_JSON = "range_z";
+        public const string DURATION_S_JSON = "duration_s";
     }
 }

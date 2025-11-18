@@ -1,5 +1,7 @@
-﻿using Analyzer_Service.Models.Dto;
+﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector;
+using Analyzer_Service.Models.Enums;
 
 namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 {
@@ -7,14 +9,13 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
     {
         private readonly IPatternHashingUtility patternHashingUtility;
 
-        private const double MinimumDurationSeconds = 0.6;
-        private const double MinimumRangeZ = 0.5;
-        private const int PatternSupportThreshold = 2;
-        private const double RareLabelCountMax = 3.0;
-        private const double RareLabelTimeFraction = 0.05;
-        private const double PostMinimumGapSeconds = 8.0;
-        private const double PostBinSeconds = 60.0;
-        private const int PostMaximumPerBin = 1;
+
+        private readonly HashSet<SegmentLabel> boringLabels = new HashSet<SegmentLabel>
+        {
+            SegmentLabel.PatternOK,
+            SegmentLabel.Steady,
+            SegmentLabel.Neutral
+        };
 
         public AnomalyDetectionUtility(IPatternHashingUtility patternHashingUtility)
         {
@@ -29,203 +30,162 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             List<Dictionary<string, double>> featureList)
         {
             int segmentCount = segmentList.Count;
-            if (segmentCount == 0)
-            {
-                return new List<int>();
-            }
 
             Dictionary<string, int> labelCounts =
                 labelList
                     .GroupBy(label => label)
-                    .ToDictionary(group => group.Key, group => group.Count());
+                    .ToDictionary(g => g.Key, g => g.Count());
 
             double totalTime =
                 timeSeries[segmentList[segmentCount - 1].EndIndex - 1] -
                 timeSeries[segmentList[0].StartIndex];
 
             if (totalTime <= 0.0)
-            {
                 totalTime = 1.0;
-            }
 
             Dictionary<string, double> labelDurations = new Dictionary<string, double>();
 
-            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
+            for (int index = 0; index < segmentCount; index++)
             {
-                SegmentBoundary segmentBoundary = segmentList[segmentIndex];
+                SegmentBoundary seg = segmentList[index];
 
-                double segmentDuration =
-                    timeSeries[segmentBoundary.EndIndex - 1] -
-                    timeSeries[segmentBoundary.StartIndex];
+                double duration =
+                    timeSeries[seg.EndIndex - 1] -
+                    timeSeries[seg.StartIndex];
 
-                string label = labelList[segmentIndex];
+                string labelRaw = labelList[index];
 
-                if (!labelDurations.ContainsKey(label))
-                {
-                    labelDurations[label] = 0.0;
-                }
+                if (!labelDurations.ContainsKey(labelRaw))
+                    labelDurations[labelRaw] = 0.0;
 
-                labelDurations[label] += segmentDuration;
+                labelDurations[labelRaw] += duration;
             }
 
-            HashSet<string> boringLabels = new HashSet<string>
-            {
-                "PatternOK",
-                "Steady",
-                "Neutral"
-            };
+            HashSet<SegmentLabel> rareLabels = new HashSet<SegmentLabel>();
 
-            HashSet<string> rareLabels = new HashSet<string>();
-
-            foreach (KeyValuePair<string, int> labelCountPair in labelCounts)
+            foreach (KeyValuePair<string,int> pair in labelCounts)
             {
-                string label = labelCountPair.Key;
-                int count = labelCountPair.Value;
+                if (!Enum.TryParse(pair.Key, out SegmentLabel lbl))
+                    continue;
 
                 double fraction =
-                    labelDurations.ContainsKey(label)
-                        ? labelDurations[label] / totalTime
+                    labelDurations.ContainsKey(pair.Key)
+                        ? labelDurations[pair.Key] / totalTime
                         : 0.0;
 
                 bool isRare =
-                    !boringLabels.Contains(label) &&
-                    (count <= RareLabelCountMax || fraction <= RareLabelTimeFraction);
+                    !boringLabels.Contains(lbl) &&
+                    (pair.Value <= ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX || fraction <= ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION);
 
                 if (isRare)
-                {
-                    rareLabels.Add(label);
-                }
+                    rareLabels.Add(lbl);
             }
 
             List<string> patternHashes = new List<string>();
 
-            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
+            for (int index = 0; index < segmentCount; index++)
             {
-                SegmentBoundary segmentBoundary = segmentList[segmentIndex];
+                SegmentBoundary seg = segmentList[index];
 
-                string hash =
-                    patternHashingUtility.ComputeHash(
-                        timeSeries,
-                        processedSignal,
-                        segmentBoundary);
+                string hash = patternHashingUtility.ComputeHash(
+                    timeSeries,
+                    processedSignal,
+                    seg);
 
                 patternHashes.Add(hash);
             }
 
             Dictionary<string, int> patternCounts =
                 patternHashes
-                    .GroupBy(hash => hash)
-                    .ToDictionary(group => group.Key, group => group.Count());
+                    .GroupBy(h => h)
+                    .ToDictionary(g => g.Key, g => g.Count());
 
             int[] patternSupportArray =
                 patternHashes
-                    .Select(hash => patternCounts[hash] - 1)
+                    .Select(h => patternCounts[h] - 1)
                     .ToArray();
 
             List<int> candidateSegmentIds = new List<int>();
 
-            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
+            for (int index = 0; index < segmentCount; index++)
             {
-                SegmentBoundary segmentBoundary = segmentList[segmentIndex];
-                string label = labelList[segmentIndex];
-                Dictionary<string, double> features = featureList[segmentIndex];
+                SegmentBoundary seg = segmentList[index];
+                string rawLabel = labelList[index];
 
-                double durationSeconds = features["duration_s"];
-                double rangeZ = features["range_z"];
+                Enum.TryParse(rawLabel, out SegmentLabel segLabel);
 
-                if (durationSeconds < MinimumDurationSeconds)
-                {
+                Dictionary<string, double> features = featureList[index];
+
+                double durationSeconds = features[ConstantRandomForest.DURATION_S_JSON];
+                double rangeZ = features[ConstantRandomForest.RANGE_Z_JSON];
+
+                if (durationSeconds < ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS)
                     continue;
-                }
 
-                if (rangeZ < MinimumRangeZ)
-                {
+                if (rangeZ < ConstantAnomalyDetection.MINIMUM_RANGEZ)
                     continue;
-                }
 
-                if (patternSupportArray[segmentIndex] >= PatternSupportThreshold)
-                {
+                if (patternSupportArray[index] >= ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD)
                     continue;
-                }
 
-                bool isRare = rareLabels.Contains(label);
-                bool isNonBoring = !boringLabels.Contains(label);
+                bool isRare = rareLabels.Contains(segLabel);
+                bool isNonBoring = !boringLabels.Contains(segLabel);
 
                 if (isRare || isNonBoring)
-                {
-                    candidateSegmentIds.Add(segmentIndex);
-                }
+                    candidateSegmentIds.Add(index);
             }
 
-            List<int> finalSegmentIds =
+            List<int> finalIds =
                 ApplyPostFiltering(timeSeries, segmentList, candidateSegmentIds);
 
-            return finalSegmentIds;
-        }
-
-        private class SegmentMidpoint
-        {
-            public int SegmentIndex { get; set; }
-            public double MidTime { get; set; }
+            return finalIds;
         }
 
         private List<int> ApplyPostFiltering(
-    List<double> timeSeries,
-    List<SegmentBoundary> segmentList,
-    List<int> candidateSegmentIds)
+            List<double> timeSeries,
+            List<SegmentBoundary> segmentList,
+            List<int> candidateSegmentIds)
         {
-            if (candidateSegmentIds.Count == 0)
-            {
-                return candidateSegmentIds;
-            }
 
-            List<SegmentMidpoint> midpointList = new List<SegmentMidpoint>();
+            List<SegmentMidpoint> midpoints = new List<SegmentMidpoint>();
 
             for (int index = 0; index < candidateSegmentIds.Count; index++)
             {
-                int segmentIndex = candidateSegmentIds[index];
-                SegmentBoundary segmentBoundary = segmentList[segmentIndex];
+                int segIndex = candidateSegmentIds[index];
+                SegmentBoundary seg = segmentList[segIndex];
 
-                double midpointTime =
-                    0.5 * (timeSeries[segmentBoundary.StartIndex] +
-                           timeSeries[segmentBoundary.EndIndex - 1]);
+                double mid =
+                    0.5 * (timeSeries[seg.StartIndex] +
+                           timeSeries[seg.EndIndex - 1]);
 
-                SegmentMidpoint segmentMidpoint = new SegmentMidpoint
+                midpoints.Add(new SegmentMidpoint
                 {
-                    SegmentIndex = segmentIndex,
-                    MidTime = midpointTime
-                };
-
-                midpointList.Add(segmentMidpoint);
+                    SegmentIndex = segIndex,
+                    MidTime = mid
+                });
             }
 
-            List<SegmentMidpoint> orderedMidpoints =
-                midpointList
-                    .OrderBy(item => item.MidTime)
-                    .ToList();
+            List<SegmentMidpoint> ordered =
+                midpoints.OrderBy(m => m.MidTime).ToList();
 
-            List<int> timeFilteredSegmentIds = new List<int>();
-            double lastAcceptedTime = -1e18;
+            List<int> filtered = new List<int>();
+            double lastTime = -1e18;
 
-            for (int index = 0; index < orderedMidpoints.Count; index++)
+            for (int index = 0; index < ordered.Count; index++)
             {
-                SegmentMidpoint segmentMidpoint = orderedMidpoints[index];
+                SegmentMidpoint mp = ordered[index];
 
-                if (segmentMidpoint.MidTime - lastAcceptedTime >= PostMinimumGapSeconds)
+                if (mp.MidTime - lastTime >= ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS)
                 {
-                    timeFilteredSegmentIds.Add(segmentMidpoint.SegmentIndex);
-                    lastAcceptedTime = segmentMidpoint.MidTime;
+                    filtered.Add(mp.SegmentIndex);
+                    lastTime = mp.MidTime;
                 }
             }
 
-            List<int> finalSegmentIds =
-                timeFilteredSegmentIds
-                    .Distinct()
-                    .OrderBy(id => id)
-                    .ToList();
-
-            return finalSegmentIds;
+            return filtered
+                .Distinct()
+                .OrderBy(id => id)
+                .ToList();
         }
-
     }
 }
