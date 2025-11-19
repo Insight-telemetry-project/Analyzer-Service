@@ -8,5 +8,7 @@
         public const double RARE_LABEL_COUNT_MAX = 3.0;
         public const double RARE_LABEL_TIME_FRACTION = 0.05;
         public const double POST_MINIMUM_GAP_SECONDS = 8.0;
+        public const double INITIAL_MIN_TIME = -1e18;
+
     }
 }
