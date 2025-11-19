@@ -10,5 +10,7 @@
         public const double POST_MINIMUM_GAP_SECONDS = 8.0;
         public const double INITIAL_MIN_TIME = -1e18;
 
+        public const int SHAPE_LENGTH = 32;
+        public const int ROUND_DECIMALS = 1;
     }
 }

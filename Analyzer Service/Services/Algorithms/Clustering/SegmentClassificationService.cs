@@ -21,8 +21,7 @@ namespace Analyzer_Service.Services
         private readonly IFeatureExtractionUtility featureExtractionUtility;
         private readonly IAnomalyDetectionUtility anomalyDetectionUtility;
         private readonly ISegmentLogicUtility segmentLogicUtility;
-        private readonly IFlightTelemetryMongoProxy _flightTelemetryMongoProxy;
-
+        private readonly IFlightTelemetryMongoProxy flightTelemetryMongoProxy;
 
         public SegmentClassificationService(
             IPrepareFlightData flightDataPreparer,
@@ -41,30 +40,35 @@ namespace Analyzer_Service.Services
             this.featureExtractionUtility = featureExtractionUtility;
             this.anomalyDetectionUtility = anomalyDetectionUtility;
             this.segmentLogicUtility = segmentLogicUtility;
-            _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
+            this.flightTelemetryMongoProxy = flightTelemetryMongoProxy;
         }
 
-        public async Task<List<SegmentClassificationResult>> ClassifyAsync(int masterIndex, string fieldName)
+        public async Task<List<SegmentClassificationResult>> ClassifyAsync(
+            int masterIndex,
+            string fieldName)
         {
-            (List<double> timeSeries, List<double> signalSeries) =
+            (List<double> timeSeriesValues, List<double> signalValues) =
                 await LoadFlightData(masterIndex, fieldName);
 
             List<SegmentBoundary> detectedSegments =
-                await DetectSegments(masterIndex, fieldName, signalSeries.Count);
+                await DetectSegments(masterIndex, fieldName, signalValues.Count);
 
-            List<double> processedSignal = PreprocessSignal(signalSeries);
+            List<double> processedSignal =
+                PreprocessSignal(signalValues);
 
-            List<double> meanValues =
+            List<double> meanValuesPerSegment =
                 segmentLogicUtility.ComputeMeansPerSegment(processedSignal, detectedSegments);
 
             return segmentLogicUtility.ClassifySegments(
-                timeSeries,
+                timeSeriesValues,
                 processedSignal,
                 detectedSegments,
-                meanValues);
+                meanValuesPerSegment);
         }
 
-        private async Task<(List<double> Time, List<double> Signal)> LoadFlightData(int masterIndex, string fieldName)
+        private async Task<(List<double> Time, List<double> Signal)> LoadFlightData(
+            int masterIndex,
+            string fieldName)
         {
             return await flightDataPreparer.PrepareFlightDataAsync(
                 masterIndex,
@@ -72,97 +76,134 @@ namespace Analyzer_Service.Services
                 fieldName);
         }
 
-        private async Task<List<SegmentBoundary>> DetectSegments(int masterIndex, string fieldName, int sampleCount)
+        private async Task<List<SegmentBoundary>> DetectSegments(
+            int masterIndex,
+            string fieldName,
+            int totalSampleCount)
         {
-            List<int> rawBoundaries =
+            List<int> rawChangePoints =
                 await changePointDetectionService.DetectChangePointsAsync(masterIndex, fieldName);
 
-            List<int> cleaned =
-                rawBoundaries
+            List<int> cleanedChangePoints =
+                rawChangePoints
                     .Distinct()
-                    .Where(Boundarie => Boundarie > 0 && Boundarie < sampleCount)
-                    .OrderBy(Boundarie => Boundarie)
+                    .Where(changePoint => changePoint > 0 && changePoint < totalSampleCount)
+                    .OrderBy(changePoint => changePoint)
                     .ToList();
 
-            if (!cleaned.Contains(sampleCount))
-                cleaned.Add(sampleCount);
+            if (!cleanedChangePoints.Contains(totalSampleCount))
+            {
+                cleanedChangePoints.Add(totalSampleCount);
+            }
 
-            return featureExtractionUtility.BuildSegmentsFromPoints(cleaned, sampleCount);
+            return featureExtractionUtility.BuildSegmentsFromPoints(
+                cleanedChangePoints,
+                totalSampleCount);
         }
 
-        private List<double> PreprocessSignal(List<double> signal)
+        private List<double> PreprocessSignal(List<double> signalValues)
         {
-            double[] filtered =
+            double[] filteredSignal =
                 signalProcessingUtility.ApplyHampel(
-                    signal.ToArray(),
+                    signalValues.ToArray(),
                     ConstantAlgorithm.HAMPEL_WINDOW,
                     ConstantAlgorithm.HAMPEL_SIGMA);
 
-            List<double> normalized =
-                signalProcessingUtility.ApplyZScore(filtered);
+            List<double> normalizedSignal =
+                signalProcessingUtility.ApplyZScore(filteredSignal);
 
-            return normalized;
+            return normalizedSignal;
         }
 
         public async Task<(List<SegmentClassificationResult> Segments, List<int> Anomalies)>
-            ClassifyWithAnomaliesAsync(int masterIndex, string fieldName)
+            ClassifyWithAnomaliesAsync(
+                int masterIndex,
+                string fieldName,
+                int startIndex,
+                int endIndex)
         {
-            (List<double> timeSeries, List<double> signalSeries) =
+            (List<double> timeSeriesValues, List<double> signalValues) =
                 await LoadFlightData(masterIndex, fieldName);
 
+            if (!(startIndex == 0 && endIndex == 0))
+            {
+                if (startIndex < 0)
+                    startIndex = 0;
+
+                if (endIndex > signalValues.Count - 1)
+                    endIndex = signalValues.Count - 1;
+
+                if (startIndex >= endIndex)
+                    return (new List<SegmentClassificationResult>(), new List<int>());
+
+                timeSeriesValues = timeSeriesValues
+                    .Skip(startIndex)
+                    .Take(endIndex - startIndex + 1)
+                    .ToList();
+
+                signalValues = signalValues
+                    .Skip(startIndex)
+                    .Take(endIndex - startIndex + 1)
+                    .ToList();
+            }
+
             List<SegmentBoundary> detectedSegments =
-                await DetectSegments(masterIndex, fieldName, signalSeries.Count);
+                await DetectSegments(masterIndex, fieldName, signalValues.Count);
 
             List<double> processedSignal =
-                PreprocessSignal(signalSeries);
+                PreprocessSignal(signalValues);
 
-            List<double> meanValues =
+            List<double> meanValuesPerSegment =
                 segmentLogicUtility.ComputeMeansPerSegment(processedSignal, detectedSegments);
 
-            List<SegmentClassificationResult> merged =
+            List<SegmentClassificationResult> mergedSegmentResults =
                 segmentLogicUtility.ClassifySegments(
-                    timeSeries,
+                    timeSeriesValues,
                     processedSignal,
                     detectedSegments,
-                    meanValues);
+                    meanValuesPerSegment);
 
             List<SegmentBoundary> mergedSegments =
-                merged.Select(merg => merg.Segment).ToList();
+                mergedSegmentResults.Select(result => result.Segment).ToList();
 
-            List<double> mergedMeans =
+            List<double> mergedMeanValues =
                 segmentLogicUtility.ComputeMeansPerSegment(processedSignal, mergedSegments);
 
             List<Dictionary<string, double>> featureList =
-                segmentLogicUtility.BuildFeatureList(timeSeries, processedSignal, mergedSegments, mergedMeans);
-
-            List<string> labels =
-                merged.Select(m => m.Label).ToList();
-
-            List<int> anomalies =
-                anomalyDetectionUtility.DetectAnomalies(
-                    timeSeries,
+                segmentLogicUtility.BuildFeatureList(
+                    timeSeriesValues,
                     processedSignal,
                     mergedSegments,
-                    labels,
+                    mergedMeanValues);
+
+            List<string> predictedLabels =
+                mergedSegmentResults.Select(result => result.Label).ToList();
+
+            List<int> detectedAnomalies =
+                anomalyDetectionUtility.DetectAnomalies(
+                    timeSeriesValues,
+                    processedSignal,
+                    mergedSegments,
+                    predictedLabels,
                     featureList);
-            for (int i = 0; i < anomalies.Count; i++)
+
+            for (int anomalyIndex = 0; anomalyIndex < detectedAnomalies.Count; anomalyIndex++)
             {
-                int anomalyIndex = anomalies[i];
+                int anomalySegmentIndex = detectedAnomalies[anomalyIndex];
+                SegmentBoundary anomalyBoundary = mergedSegments[anomalySegmentIndex];
 
-                SegmentBoundary boundary = mergedSegments[anomalyIndex];
+                double anomalyStartTime = timeSeriesValues[anomalyBoundary.StartIndex];
+                double anomalyEndTime = timeSeriesValues[anomalyBoundary.EndIndex - 1];
 
-                double startTime = timeSeries[boundary.StartIndex];
-                double endTime = timeSeries[boundary.EndIndex - 1];
+                double anomalyMidpointTime = 0.5 * (anomalyStartTime + anomalyEndTime);
 
-                double midTime = 0.5 * (startTime + endTime);
-
-                await _flightTelemetryMongoProxy.StoreAnomalyAsync(
+                await flightTelemetryMongoProxy.StoreAnomalyAsync(
                     masterIndex,
                     fieldName,
-                    midTime
-                );
+                    anomalyMidpointTime);
             }
-            return (merged, anomalies);
-        } 
+
+            return (mergedSegmentResults, detectedAnomalies);
+        }
     }
 }

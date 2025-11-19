@@ -20,108 +20,123 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
             this.featureExtractionUtility = featureExtractionUtility;
         }
 
-        public List<double> ComputeMeansPerSegment(List<double> signal, List<SegmentBoundary> segments)
+        public List<double> ComputeMeansPerSegment(List<double> signalValues, List<SegmentBoundary> segmentBoundaries)
         {
-            List<double> means = new List<double>(segments.Count);
+            List<double> meanValuesPerSegment = new List<double>(segmentBoundaries.Count);
 
-            for (int index = 0; index < segments.Count; index++)
+            for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
             {
-                SegmentBoundary seg = segments[index];
-                double sum = 0.0;
+                SegmentBoundary segmentBoundary = segmentBoundaries[segmentIndex];
+                double sumOfValues = 0.0;
 
-                for (int idx = seg.StartIndex; idx < seg.EndIndex; idx++)
-                    sum += signal[idx];
+                for (int signalIndex = segmentBoundary.StartIndex; signalIndex < segmentBoundary.EndIndex; signalIndex++)
+                {
+                    sumOfValues += signalValues[signalIndex];
+                }
 
-                double mean = sum / (seg.EndIndex - seg.StartIndex);
-                means.Add(mean);
+                double meanValue = sumOfValues / (segmentBoundary.EndIndex - segmentBoundary.StartIndex);
+                meanValuesPerSegment.Add(meanValue);
             }
 
-            return means;
+            return meanValuesPerSegment;
         }
 
         public List<SegmentClassificationResult> ClassifySegments(
-            List<double> timeSeries,
-            List<double> signal,
-            List<SegmentBoundary> segments,
-            List<double> meanValues)
+            List<double> timeSeriesValues,
+            List<double> signalValues,
+            List<SegmentBoundary> segmentBoundaries,
+            List<double> meanValuesPerSegment)
         {
-            List<SegmentClassificationResult> list = new List<SegmentClassificationResult>();
+            List<SegmentClassificationResult> classificationResults = new List<SegmentClassificationResult>();
 
-            for (int index = 0; index < segments.Count; index++)
+            for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
             {
-                SegmentBoundary seg = segments[index];
+                SegmentBoundary segmentBoundary = segmentBoundaries[segmentIndex];
 
-                double prev = index > 0 ? meanValues[index - 1] : 0.0;
-                double next = index < meanValues.Count - 1 ? meanValues[index + 1] : 0.0;
+                double previousMeanValue = segmentIndex > 0 ? meanValuesPerSegment[segmentIndex - 1] : 0.0;
+                double nextMeanValue = segmentIndex < meanValuesPerSegment.Count - 1 ? meanValuesPerSegment[segmentIndex + 1] : 0.0;
 
-                double[] features =
-                    featureExtractionUtility.ExtractFeatures(timeSeries, signal, seg, prev, next);
+                double[] featureVector =
+                    featureExtractionUtility.ExtractFeatures(
+                        timeSeriesValues,
+                        signalValues,
+                        segmentBoundary,
+                        previousMeanValue,
+                        nextMeanValue);
 
-                string label =
-                    randomForestOperations.PredictLabel(modelProvider, features);
+                string predictedLabel =
+                    randomForestOperations.PredictLabel(modelProvider, featureVector);
 
-                list.Add(new SegmentClassificationResult(seg, label));
+                classificationResults.Add(
+                    new SegmentClassificationResult(segmentBoundary, predictedLabel)
+                );
             }
 
-            return MergeSegments(list);
+            return MergeSegments(classificationResults);
         }
 
-        public List<SegmentClassificationResult> MergeSegments(List<SegmentClassificationResult> segments)
+        public List<SegmentClassificationResult> MergeSegments(List<SegmentClassificationResult> segmentClassificationResults)
         {
-            List<SegmentClassificationResult> merged = new List<SegmentClassificationResult>();
+            List<SegmentClassificationResult> mergedSegmentResults = new List<SegmentClassificationResult>();
 
-            SegmentClassificationResult current = segments[0];
+            SegmentClassificationResult currentSegmentResult = segmentClassificationResults[0];
 
-            for (int index = 1; index < segments.Count; index++)
+            for (int segmentIndex = 1; segmentIndex < segmentClassificationResults.Count; segmentIndex++)
             {
-                SegmentClassificationResult next = segments[index];
+                SegmentClassificationResult nextSegmentResult = segmentClassificationResults[segmentIndex];
 
-                if (current.Label == next.Label &&
-                    current.Segment.EndIndex == next.Segment.StartIndex)
+                bool hasSameLabel = currentSegmentResult.Label == nextSegmentResult.Label;
+                bool isContinuous =
+                    currentSegmentResult.Segment.EndIndex == nextSegmentResult.Segment.StartIndex;
+
+                if (hasSameLabel && isContinuous)
                 {
-                    current = new SegmentClassificationResult(
-                        new SegmentBoundary(current.Segment.StartIndex, next.Segment.EndIndex),
-                        current.Label);
+                    currentSegmentResult = new SegmentClassificationResult(
+                        new SegmentBoundary(
+                            currentSegmentResult.Segment.StartIndex,
+                            nextSegmentResult.Segment.EndIndex),
+                        currentSegmentResult.Label);
                 }
                 else
                 {
-                    merged.Add(current);
-                    current = next;
+                    mergedSegmentResults.Add(currentSegmentResult);
+                    currentSegmentResult = nextSegmentResult;
                 }
             }
 
-            merged.Add(current);
-            return merged;
+            mergedSegmentResults.Add(currentSegmentResult);
+            return mergedSegmentResults;
         }
+
         public List<Dictionary<string, double>> BuildFeatureList(
-            List<double> timeSeries,
-            List<double> signal,
-            List<SegmentBoundary> segments,
-            List<double> meanValues)
+            List<double> timeSeriesValues,
+            List<double> signalValues,
+            List<SegmentBoundary> segmentBoundaries,
+            List<double> meanValuesPerSegment)
         {
-            List<Dictionary<string, double>> list =
-                new List<Dictionary<string, double>>(segments.Count);
+            List<Dictionary<string, double>> featureList =
+                new List<Dictionary<string, double>>(segmentBoundaries.Count);
 
-            for (int index = 0; index < segments.Count; index++)
+            for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
             {
-                double prev = index > 0 ? meanValues[index - 1] : 0.0;
-                double next = index < meanValues.Count - 1 ? meanValues[index + 1] : 0.0;
+                double previousMeanValue = segmentIndex > 0 ? meanValuesPerSegment[segmentIndex - 1] : 0.0;
+                double nextMeanValue = segmentIndex < meanValuesPerSegment.Count - 1 ? meanValuesPerSegment[segmentIndex + 1] : 0.0;
 
-                double[] vector =
+                double[] featureVector =
                     featureExtractionUtility.ExtractFeatures(
-                        timeSeries,
-                        signal,
-                        segments[index],
-                        prev,
-                        next);
+                        timeSeriesValues,
+                        signalValues,
+                        segmentBoundaries[segmentIndex],
+                        previousMeanValue,
+                        nextMeanValue);
 
-                Dictionary<string, double> dict =
-                    modelProvider.BuildFeatureDictionary(vector);
+                Dictionary<string, double> featureDictionary =
+                    modelProvider.BuildFeatureDictionary(featureVector);
 
-                list.Add(dict);
+                featureList.Add(featureDictionary);
             }
 
-            return list;
+            return featureList;
         }
     }
 }

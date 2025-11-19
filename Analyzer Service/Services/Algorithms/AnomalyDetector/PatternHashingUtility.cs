@@ -1,15 +1,12 @@
 ﻿using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector;
-
+using Analyzer_Service.Models.Constant;
 namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 {
     public class PatternHashingUtility : IPatternHashingUtility
     {
         private readonly ISignalProcessingUtility signalProcessingUtility;
-
-        private const int ShapeLength = 32;
-        private const int RoundDecimals = 1;
 
         public PatternHashingUtility(ISignalProcessingUtility signalProcessingUtility)
         {
@@ -26,7 +23,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             if (segmentLength <= 2)
             {
                 double value = processedSignal[segmentBoundary.StartIndex];
-                double[] repeated = Enumerable.Repeat(value, ShapeLength).ToArray();
+                double[] repeated = Enumerable.Repeat(value, ConstantAnomalyDetection.SHAPE_LENGTH).ToArray();
                 return string.Join(",", repeated);
             }
 
@@ -50,10 +47,10 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
                 segmentValues[index] = processedSignal[segmentBoundary.StartIndex + index];
             }
 
-            double[] grid = new double[ShapeLength];
-            for (int index = 0; index < ShapeLength; index++)
+            double[] grid = new double[ConstantAnomalyDetection.SHAPE_LENGTH];
+            for (int index = 0; index < ConstantAnomalyDetection.SHAPE_LENGTH; index++)
             {
-                grid[index] = (double)index / (ShapeLength - 1);
+                grid[index] = (double)index / (ConstantAnomalyDetection.SHAPE_LENGTH - 1);
             }
 
             double[] interpolatedValues = Interpolate(normalizedTime, segmentValues, grid);
@@ -63,7 +60,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 
             double[] roundedValues =
                 zScoreValues
-                    .Select(value => Math.Round(value, RoundDecimals))
+                    .Select(value => Math.Round(value, ConstantAnomalyDetection.ROUND_DECIMALS))
                     .ToArray();
 
             string hash = string.Join(",", roundedValues);
