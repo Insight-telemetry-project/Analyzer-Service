@@ -1,4 +1,4 @@
-﻿using Analyzer_Service.Models.Configuration;
+using Analyzer_Service.Models.Configuration;
 using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Ro.Algorithms;
@@ -41,11 +41,14 @@ namespace Analyzer_Service.Services.Mongo
             return results;
         }
 
+        public async Task StoreConnectionsAsync(int masterIndex, string sensorName, string connectionTarget)
+        {
+            FilterDefinition<TelemetryFlightData> filter = Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
 
         public async Task<int> GetFlightLengthAsync(int masterIndex)
         {
             FilterDefinition<TelemetryFlightData> filter =
-                Builders<TelemetryFlightData>.Filter.Eq(f => f.MasterIndex, masterIndex);
+                Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
 
             TelemetryFlightData? result = await _telemetryFlightData.Find(filter).FirstOrDefaultAsync();
 
@@ -55,6 +58,21 @@ namespace Analyzer_Service.Services.Mongo
             return result.Fields[ConstantFligth.FLIGHT_LENGTH];
         }
 
+        public async Task StoreAnomalyAsync(int masterIndex, string sensorName, double anomalyTime)
+        {
+            FilterDefinition<TelemetryFlightData> filter =
+                Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
+
+            UpdateDefinition<TelemetryFlightData> update =
+                Builders<TelemetryFlightData>.Update
+                    .AddToSet($"Anomalies.{sensorName}", anomalyTime);
+
+            await _telemetryFlightData.UpdateOneAsync(
+                filter,
+                update,
+                new UpdateOptions { IsUpsert = true }
+            );
+        }
 
         public async Task StoreConnectionsBulkAsync(List<ConnectionResult> connections)
         {

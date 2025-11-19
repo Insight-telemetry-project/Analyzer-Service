@@ -6,6 +6,7 @@ using Analyzer_Service.Models.Interface.Algorithms.Clustering;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
 using Analyzer_Service.Models.Interface.Mongo;
+using Analyzer_Service.Services.Mongo;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -20,6 +21,8 @@ namespace Analyzer_Service.Services
         private readonly IFeatureExtractionUtility featureExtractionUtility;
         private readonly IAnomalyDetectionUtility anomalyDetectionUtility;
         private readonly ISegmentLogicUtility segmentLogicUtility;
+        private readonly IFlightTelemetryMongoProxy _flightTelemetryMongoProxy;
+
 
         public SegmentClassificationService(
             IPrepareFlightData flightDataPreparer,
@@ -29,7 +32,8 @@ namespace Analyzer_Service.Services
             IAnomalyDetectionUtility anomalyDetectionUtility,
             IRandomForestModelProvider modelProvider,
             IRandomForestOperations randomForestOperations,
-            ISegmentLogicUtility segmentLogicUtility)
+            ISegmentLogicUtility segmentLogicUtility,
+            IFlightTelemetryMongoProxy flightTelemetryMongoProxy)
         {
             this.flightDataPreparer = flightDataPreparer;
             this.changePointDetectionService = changePointDetectionService;
@@ -37,6 +41,7 @@ namespace Analyzer_Service.Services
             this.featureExtractionUtility = featureExtractionUtility;
             this.anomalyDetectionUtility = anomalyDetectionUtility;
             this.segmentLogicUtility = segmentLogicUtility;
+            _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
         }
 
         public async Task<List<SegmentClassificationResult>> ClassifyAsync(int masterIndex, string fieldName)
@@ -140,7 +145,23 @@ namespace Analyzer_Service.Services
                     mergedSegments,
                     labels,
                     featureList);
+            for (int i = 0; i < anomalies.Count; i++)
+            {
+                int anomalyIndex = anomalies[i];
 
+                SegmentBoundary boundary = mergedSegments[anomalyIndex];
+
+                double startTime = timeSeries[boundary.StartIndex];
+                double endTime = timeSeries[boundary.EndIndex - 1];
+
+                double midTime = 0.5 * (startTime + endTime);
+
+                await _flightTelemetryMongoProxy.StoreAnomalyAsync(
+                    masterIndex,
+                    fieldName,
+                    midTime
+                );
+            }
             return (merged, anomalies);
         } 
     }

@@ -66,12 +66,6 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             double totalTime =
                 timeSeries[segmentBoundaries[totalSegmentCount - 1].EndIndex - 1] -
                 timeSeries[segmentBoundaries[0].StartIndex];
-
-            if (totalTime <= 0.0)
-            {
-                totalTime = 1.0;
-            }
-
             return totalTime;
         }
 
