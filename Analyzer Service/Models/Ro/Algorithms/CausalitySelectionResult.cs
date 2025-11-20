@@ -1,18 +1,22 @@
-﻿namespace Analyzer_Service.Models.Ro.Algorithms
+﻿using static Analyzer_Service.Models.Algorithms.Type.Types;
+
+namespace Analyzer_Service.Models.Ro.Algorithms
 {
     public class CausalitySelectionResult
     {
-        public string SelectedAlgorithm { get; }
-        public string Reasoning { get; }
+        public CausalityAlgorithm SelectedAlgorithm { get; }
         public double PearsonCorrelation { get; }
         public double DerivativeCorrelation { get; }
 
-        public CausalitySelectionResult(string selectedAlgorithm, string reasoning, double pearson, double derivative)
+        public CausalitySelectionResult(
+            CausalityAlgorithm selectedAlgorithm,
+            double pearsonCorrelation,
+            double derivativeCorrelation)
         {
             SelectedAlgorithm = selectedAlgorithm;
-            Reasoning = reasoning;
-            PearsonCorrelation = pearson;
-            DerivativeCorrelation = derivative;
+            PearsonCorrelation = pearsonCorrelation;
+            DerivativeCorrelation = derivativeCorrelation;
         }
     }
+
 }

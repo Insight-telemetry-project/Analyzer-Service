@@ -1,6 +1,7 @@
 ﻿using Analyzer_Service.Models.Configuration;
 using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Interface.Mongo;
+using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
@@ -39,5 +40,52 @@ namespace Analyzer_Service.Services.Mongo
             List<TelemetryFlightData> results = await _telemetryFlightData.Find(filter).ToListAsync();
             return results;
         }
+
+
+        public async Task<int> GetFlightLengthAsync(int masterIndex)
+        {
+            FilterDefinition<TelemetryFlightData> filter =
+                Builders<TelemetryFlightData>.Filter.Eq(f => f.MasterIndex, masterIndex);
+
+            TelemetryFlightData? result = await _telemetryFlightData.Find(filter).FirstOrDefaultAsync();
+
+            if (result == null || result.Fields == null || !result.Fields.ContainsKey(ConstantFligth.FLIGHT_LENGTH))
+                return -1;
+
+            return result.Fields[ConstantFligth.FLIGHT_LENGTH];
+        }
+
+
+        public async Task StoreConnectionsBulkAsync(List<ConnectionResult> connections)
+        {
+
+            int masterIndex = connections[0].MasterIndex;
+
+            FilterDefinition<TelemetryFlightData> filter =
+                Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
+
+            List<WriteModel<TelemetryFlightData>> bulkOperations =
+                new List<WriteModel<TelemetryFlightData>>();
+
+            foreach (ConnectionResult connection in connections)
+            {
+                string sensorName = connection.SourceField;
+                string targetName = connection.TargetField;
+
+                UpdateDefinition<TelemetryFlightData> update =
+                    Builders<TelemetryFlightData>.Update
+                        .AddToSet($"Connections.{sensorName}", targetName);
+
+                UpdateOneModel<TelemetryFlightData> updateOperation =
+                    new UpdateOneModel<TelemetryFlightData>(filter, update)
+                    { IsUpsert = true };
+
+                bulkOperations.Add(updateOperation);
+            }
+
+            await _telemetryFlightData.BulkWriteAsync(bulkOperations);
+        }
+
+
     }
 }
