@@ -41,9 +41,9 @@ namespace Analyzer_Service.Services.Mongo
             return results;
         }
 
-        public async Task StoreConnectionsAsync(int masterIndex, string sensorName, string connectionTarget)
-        {
-            FilterDefinition<TelemetryFlightData> filter = Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
+        //public async Task StoreConnectionsAsync(int masterIndex, string sensorName, string connectionTarget)
+        //{
+        //    FilterDefinition<TelemetryFlightData> filter = Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
 
         public async Task<int> GetFlightLengthAsync(int masterIndex)
         {

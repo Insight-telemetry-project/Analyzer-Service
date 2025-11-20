@@ -12,8 +12,7 @@ namespace Analyzer_Service.Services.Algorithms
             List<double> sourceSeries,
             List<double> targetSeries)
         {
-            double pearsonCorrelation =
-                ComputePearsonCorrelation(sourceSeries, targetSeries);
+            double pearsonCorrelation = ComputePearsonCorrelation(sourceSeries, targetSeries);
 
             double derivativeCorrelation =
                 ComputePearsonCorrelation(
