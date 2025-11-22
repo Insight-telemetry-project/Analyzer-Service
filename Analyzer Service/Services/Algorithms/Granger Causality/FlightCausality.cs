@@ -6,6 +6,7 @@ using Analyzer_Service.Models.Interface.Algorithms.Ccm;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
+using MongoDB.Driver;
 using System.Collections.Concurrent;
 using static Analyzer_Service.Models.Algorithms.Type.Types;
 
@@ -35,19 +36,19 @@ namespace Analyzer_Service.Services.Algorithms
         }
         public async Task<FlightCausalityAnalysisResult> AnalyzeFlightAsync(int masterIndex)
         {
-            List<TelemetrySensorFields> telemetryRecords =
-                await mongoProxy.GetFromFieldsAsync(masterIndex);
+            IAsyncCursor<TelemetrySensorFields> cursor =await mongoProxy.GetCursorFromFieldsAsync(masterIndex);
 
-            int flightLength =
-                await mongoProxy.GetFlightLengthAsync(masterIndex);
+            int flightLength = await mongoProxy.GetFlightLengthAsync(masterIndex);
 
             Dictionary<string, FieldSeries> telemetryByField =
-                ExtractTelemetryDictionary(telemetryRecords);
+                await BuildTelemetryDictionaryAsync(cursor);
 
             List<FieldPair> fieldPairs =
                 CreateFieldPairs(telemetryByField);
 
-            int lagCount = Math.Max(ConstantAlgorithm.MIN_LAG,flightLength / ConstantAlgorithm.LAG_DIVISOR);
+            int lagCount = Math.Max(
+                ConstantAlgorithm.MIN_LAG,
+                flightLength / ConstantAlgorithm.LAG_DIVISOR);
 
             ConcurrentBag<PairCausalityResult> analysisResults =
                 await ProcessAllPairsAsync(
@@ -66,22 +67,26 @@ namespace Analyzer_Service.Services.Algorithms
             };
         }
 
-
-        private Dictionary<string, FieldSeries> ExtractTelemetryDictionary(
-            List<TelemetrySensorFields> telemetryRecords)
+        private async Task<Dictionary<string, FieldSeries>> BuildTelemetryDictionaryAsync(IAsyncCursor<TelemetrySensorFields> cursor)
         {
-            return telemetryRecords
-                .SelectMany(record => record.Fields)
-                .GroupBy(entry => entry.Key)
-                .ToDictionary(
-                    group => group.Key,
-                    group => new FieldSeries(
-                        group.Key,
-                        group.Select(entry => entry.Value).ToList()
-                    )
-                );
-        }
+            Dictionary<string, List<double>> temp = new Dictionary<string, List<double>>();
 
+            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
+            {
+                foreach (KeyValuePair<string,double> entry in record.Fields)
+                {
+                    if (!temp.ContainsKey(entry.Key))
+                        temp[entry.Key] = new List<double>();
+
+                    temp[entry.Key].Add(entry.Value);
+                }
+            }
+
+            return temp.ToDictionary(
+                kvp => kvp.Key,
+                kvp => new FieldSeries(kvp.Key, kvp.Value)
+            );
+        }
 
 
         private List<FieldPair> CreateFieldPairs(

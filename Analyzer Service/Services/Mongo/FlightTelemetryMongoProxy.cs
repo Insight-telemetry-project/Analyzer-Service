@@ -23,14 +23,20 @@ namespace Analyzer_Service.Services.Mongo
             _telemetryFields = database.GetCollection<TelemetrySensorFields>(mongoSettings.CollectionTelemetryFields);
             _telemetryFlightData = database.GetCollection<TelemetryFlightData>(mongoSettings.CollectionTelemetryFlightData);
         }
-        public async Task<List<TelemetrySensorFields>> GetFromFieldsAsync(int masterIndex)
+
+
+        public async Task<IAsyncCursor<TelemetrySensorFields>> GetCursorFromFieldsAsync(int masterIndex)
         {
             FilterDefinition<TelemetrySensorFields> filter =
-                Builders<TelemetrySensorFields>.Filter.Eq(ConstantFligth.FLIGHT_ID, masterIndex);
+                Builders<TelemetrySensorFields>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
 
-            List<TelemetrySensorFields> results = await _telemetryFields.Find(filter).ToListAsync();
-            return results;
+            return await _telemetryFields
+                .Find(filter)
+                .SortBy(flight => flight.Timestep)
+                .ToCursorAsync();
         }
+
+
 
         public async Task<List<TelemetryFlightData>> GetFromFlightDataAsync(int masterIndex)
         {
@@ -41,10 +47,7 @@ namespace Analyzer_Service.Services.Mongo
             return results;
         }
 
-        //public async Task StoreConnectionsAsync(int masterIndex, string sensorName, string connectionTarget)
-        //{
-        //    FilterDefinition<TelemetryFlightData> filter = Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
-
+       
         public async Task<int> GetFlightLengthAsync(int masterIndex)
         {
             FilterDefinition<TelemetryFlightData> filter =

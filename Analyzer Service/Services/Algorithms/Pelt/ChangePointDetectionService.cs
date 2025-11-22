@@ -1,4 +1,5 @@
 ﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt.Analyzer_Service.Models.Interface.Algorithms.Pelt;
@@ -27,12 +28,14 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
         public async Task<List<int>> DetectChangePointsAsync(int masterIndex, string targetFieldName)
         {
-            (List<double> timeSeries, List<double> signalSeries) =
-                await flightDataPreparer.PrepareFlightDataAsync(
-                    masterIndex,
-                    ConstantFligth.TIMESTEP_COL,
-                    targetFieldName
-                );
+            SignalSeries series =await flightDataPreparer.PrepareFlightDataAsync(
+                masterIndex,
+                ConstantFligth.TIMESTEP_COL,
+                targetFieldName);
+
+            List<double> timeSeries = series.Time;
+            List<double> signalSeries = series.Values;
+
 
             List<double> cleanedSignal =
                 signalPreprocessor
