@@ -47,8 +47,11 @@ namespace Analyzer_Service.Services
             int masterIndex,
             string fieldName)
         {
-            (List<double> timeSeriesValues, List<double> signalValues) =
-                await LoadFlightData(masterIndex, fieldName);
+            SignalSeries series = await LoadFlightData(masterIndex, fieldName);
+
+            List<double> timeSeriesValues = series.Time;
+            List<double> signalValues = series.Values;
+
 
             List<SegmentBoundary> detectedSegments =
                 await DetectSegments(masterIndex, fieldName, signalValues.Count);
@@ -66,7 +69,7 @@ namespace Analyzer_Service.Services
                 meanValuesPerSegment);
         }
 
-        private async Task<(List<double> Time, List<double> Signal)> LoadFlightData(
+        private async Task<SignalSeries> LoadFlightData(
             int masterIndex,
             string fieldName)
         {
@@ -122,8 +125,11 @@ namespace Analyzer_Service.Services
                 int startIndex,
                 int endIndex)
         {
-            (List<double> timeSeriesValues, List<double> signalValues) =
-                await LoadFlightData(masterIndex, fieldName);
+            SignalSeries series = await LoadFlightData(masterIndex, fieldName);
+
+            List<double> timeSeriesValues = series.Time;
+            List<double> signalValues = series.Values;
+
 
             if (!(startIndex == 0 && endIndex == 0))
             {

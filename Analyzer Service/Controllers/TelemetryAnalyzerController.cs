@@ -9,6 +9,7 @@ using Analyzer_Service.Services;
 using Analyzer_Service.Services.Mongo;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Driver;
 
 namespace Analyzer_Service.Controllers
 {
@@ -48,13 +49,24 @@ namespace Analyzer_Service.Controllers
         [HttpGet("fields/{masterIndex}")]
         public async Task<IActionResult> GetFieldsByMasterIndex(int masterIndex)
         {
-            List<TelemetrySensorFields> result = await _flightTelemetryMongoProxy.GetFromFieldsAsync(masterIndex);
-            if (result.Count == 0)
+            IAsyncCursor<TelemetrySensorFields> cursor =
+                await _flightTelemetryMongoProxy.GetCursorFromFieldsAsync(masterIndex);
+
+            List<TelemetrySensorFields> list = new List<TelemetrySensorFields>();
+
+            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
+            {
+                list.Add(record);
+            }
+
+            if (list.Count == 0)
             {
                 return NotFound($"No TelemetryFields found for Master Index {masterIndex}");
             }
-            return Ok(result);
+
+            return Ok(list);
         }
+
 
         [HttpGet("flight/{masterIndex}")]
         public async Task<IActionResult> GetFlightByMasterIndex(int masterIndex)
@@ -100,24 +112,19 @@ namespace Analyzer_Service.Controllers
         }
 
         [HttpGet("segments-with-anomalies/{masterIndex}/{fieldName}/{startIndex}/{endIndex}")]
-public async Task<IActionResult> ClassifyWithRange(
-    int masterIndex,
-    string fieldName,
-    int startIndex,
-    int endIndex)
-{
-    var result = await _segmentClassifier.ClassifyWithAnomaliesAsync(
-        masterIndex,
-        fieldName,
-        startIndex,
-        endIndex);
+        public async Task<IActionResult> ClassifyWithRange(int masterIndex,string fieldName,int startIndex,int endIndex){
+            var result = await _segmentClassifier.ClassifyWithAnomaliesAsync(
+            masterIndex,
+            fieldName,
+            startIndex,
+            endIndex);
 
-    return Ok(new
-    {
-        segments = result.Segments,
-        anomalies = result.Anomalies
-    });
-}
+            return Ok(new
+            {
+                segments = result.Segments,
+                anomalies = result.Anomalies
+            });
+        }
 
     }
 }
