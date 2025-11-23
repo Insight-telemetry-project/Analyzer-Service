@@ -13,6 +13,8 @@ namespace Analyzer_Service.Models.Interface.Mongo
         Task<int> GetFlightLengthAsync(int masterIndex);
         Task StoreConnectionsBulkAsync(List<ConnectionResult> connections);
         Task StoreAnomalyAsync(int masterIndex, string sensorName, double anomalyTime);
+        Task<IAsyncCursor<HistoricalAnomalyRecord>> GetHistoricalCandidatesAsync(string parameterName, string label);
+        Task StoreHistoricalAnomalyAsync(HistoricalAnomalyRecord record);
 
     }
 }

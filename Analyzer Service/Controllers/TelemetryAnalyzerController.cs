@@ -2,8 +2,10 @@
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
 using Analyzer_Service.Models.Interface.Algorithms.Clustering;
+using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Mongo;
+using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using Analyzer_Service.Services;
 using Analyzer_Service.Services.Mongo;
@@ -24,6 +26,7 @@ namespace Analyzer_Service.Controllers
         private readonly ICcmCausalityAnalyzer _ccmAnalyzer;
         private readonly IChangePointDetectionService _changePointDetectionService;
         private readonly ISegmentClassificationService _segmentClassifier;
+        private readonly IHistoricalAnomalySimilarityService _historicalSimilarityService;
 
 
         public TelemetryAnalyzerController(
@@ -33,7 +36,9 @@ namespace Analyzer_Service.Controllers
             IFlightCausality flightCausalityService,
             ICcmCausalityAnalyzer ccmAnalyzer,
             IChangePointDetectionService changePointDetectionService,
-            ISegmentClassificationService segmentClassifier
+            ISegmentClassificationService segmentClassifier,
+            IHistoricalAnomalySimilarityService historicalSimilarityService
+
 )
         {
             _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
@@ -43,6 +48,7 @@ namespace Analyzer_Service.Controllers
             _ccmAnalyzer = ccmAnalyzer;
             _changePointDetectionService = changePointDetectionService;
             _segmentClassifier = segmentClassifier;
+            _historicalSimilarityService = historicalSimilarityService;
 
         }
 
@@ -125,6 +131,60 @@ namespace Analyzer_Service.Controllers
                 anomalies = result.Anomalies
             });
         }
+
+
+
+
+
+        [HttpGet("similar-anomalies/{masterIndex}/{fieldName}")]
+        public async Task<IActionResult> FindSimilarAnomalies(int masterIndex, string fieldName)
+        {
+            double threshold = 0.7; // אפשר לשנות או להעביר ב-QueryString
+
+            var classification =
+                await _segmentClassifier.ClassifyWithAnomaliesAsync(
+                    masterIndex,
+                    fieldName,
+                    0,
+                    0);
+
+            List<SegmentClassificationResult> segments = classification.Segments;
+            List<int> anomalyIndices = classification.Anomalies;
+
+            List<object> results = new List<object>();
+
+            foreach (int anomalyIndex in anomalyIndices)
+            {
+                SegmentClassificationResult segment = segments[anomalyIndex];
+
+                string label = segment.Label;
+                SegmentBoundary boundary = segment.Segment;
+
+                double duration = boundary.EndIndex - boundary.StartIndex;
+
+                Dictionary<string, double> featureVector = segment.FeatureValues;
+                double[] hashVector = segment.HashVector;
+
+                var similar =
+                    await _historicalSimilarityService.FindSimilarAnomaliesAsync(
+                        fieldName,
+                        label,
+                        hashVector,
+                        featureVector,
+                        duration,
+                        threshold);
+
+                results.Add(new
+                {
+                    AnomalyBoundary = boundary,
+                    Label = label,
+                    Similar = similar
+                });
+            }
+
+            return Ok(results);
+        }
+
 
     }
 }

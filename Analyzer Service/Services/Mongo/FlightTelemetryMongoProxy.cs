@@ -12,6 +12,7 @@ namespace Analyzer_Service.Services.Mongo
     {
         private readonly IMongoCollection<TelemetrySensorFields> _telemetryFields;
         private readonly IMongoCollection<TelemetryFlightData> _telemetryFlightData;
+        private readonly IMongoCollection<HistoricalAnomalyRecord> _historicalAnomalies;
 
         public FlightTelemetryMongoProxy(IOptions<MongoSettings> settings)
         {
@@ -22,13 +23,14 @@ namespace Analyzer_Service.Services.Mongo
 
             _telemetryFields = database.GetCollection<TelemetrySensorFields>(mongoSettings.CollectionTelemetryFields);
             _telemetryFlightData = database.GetCollection<TelemetryFlightData>(mongoSettings.CollectionTelemetryFlightData);
+            _historicalAnomalies =database.GetCollection<HistoricalAnomalyRecord>(mongoSettings.CollectionHistoricalAnomalies);
+
         }
 
 
         public async Task<IAsyncCursor<TelemetrySensorFields>> GetCursorFromFieldsAsync(int masterIndex)
         {
-            FilterDefinition<TelemetrySensorFields> filter =
-                Builders<TelemetrySensorFields>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
+            FilterDefinition<TelemetrySensorFields> filter =Builders<TelemetrySensorFields>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
 
             return await _telemetryFields
                 .Find(filter)
@@ -40,8 +42,7 @@ namespace Analyzer_Service.Services.Mongo
 
         public async Task<List<TelemetryFlightData>> GetFromFlightDataAsync(int masterIndex)
         {
-            FilterDefinition<TelemetryFlightData> filter =
-                Builders<TelemetryFlightData>.Filter.Eq(ConstantFligth.FLIGHT_ID, masterIndex);
+            FilterDefinition<TelemetryFlightData> filter =Builders<TelemetryFlightData>.Filter.Eq(ConstantFligth.FLIGHT_ID, masterIndex);
 
             List<TelemetryFlightData> results = await _telemetryFlightData.Find(filter).ToListAsync();
             return results;
@@ -85,8 +86,7 @@ namespace Analyzer_Service.Services.Mongo
             FilterDefinition<TelemetryFlightData> filter =
                 Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
 
-            List<WriteModel<TelemetryFlightData>> bulkOperations =
-                new List<WriteModel<TelemetryFlightData>>();
+            List<WriteModel<TelemetryFlightData>> bulkOperations =new List<WriteModel<TelemetryFlightData>>();
 
             foreach (ConnectionResult connection in connections)
             {
@@ -105,6 +105,35 @@ namespace Analyzer_Service.Services.Mongo
             }
 
             await _telemetryFlightData.BulkWriteAsync(bulkOperations);
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        public async Task<IAsyncCursor<HistoricalAnomalyRecord>>GetHistoricalCandidatesAsync
+            (string parameterName, string label)
+        {
+            FilterDefinition<HistoricalAnomalyRecord> filter =
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.ParameterName, parameterName) &
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.Label, label);
+            return await _historicalAnomalies
+                .Find(filter)
+                .ToCursorAsync();
+        }
+
+        public async Task StoreHistoricalAnomalyAsync(HistoricalAnomalyRecord record)
+        {
+            await _historicalAnomalies.InsertOneAsync(record);
         }
 
 
