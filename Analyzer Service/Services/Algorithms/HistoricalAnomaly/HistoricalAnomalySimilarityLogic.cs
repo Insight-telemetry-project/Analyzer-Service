@@ -68,9 +68,9 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
         public double ComputeWeightedScore(double hashSimilarity, double featureSimilarity, double durationSimilarity)
         {
             double finalScore =
-                (0.5 * hashSimilarity) +
-                (0.4 * featureSimilarity) +
-                (0.1 * durationSimilarity);
+                (0.75 * hashSimilarity) +
+                (0.2 * featureSimilarity) +
+                (0.05 * durationSimilarity);
 
             return finalScore;
         }

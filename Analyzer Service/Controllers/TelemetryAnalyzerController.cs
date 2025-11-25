@@ -139,51 +139,12 @@ namespace Analyzer_Service.Controllers
         [HttpGet("similar-anomalies/{masterIndex}/{fieldName}")]
         public async Task<IActionResult> FindSimilarAnomalies(int masterIndex, string fieldName)
         {
-            double threshold = 0.7; // אפשר לשנות או להעביר ב-QueryString
-
-            var classification =
-                await _segmentClassifier.ClassifyWithAnomaliesAsync(
-                    masterIndex,
-                    fieldName,
-                    0,
-                    0);
-
-            List<SegmentClassificationResult> segments = classification.Segments;
-            List<int> anomalyIndices = classification.Anomalies;
-
-            List<object> results = new List<object>();
-
-            foreach (int anomalyIndex in anomalyIndices)
-            {
-                SegmentClassificationResult segment = segments[anomalyIndex];
-
-                string label = segment.Label;
-                SegmentBoundary boundary = segment.Segment;
-
-                double duration = boundary.EndIndex - boundary.StartIndex;
-
-                Dictionary<string, double> featureVector = segment.FeatureValues;
-                double[] hashVector = segment.HashVector;
-
-                var similar =
-                    await _historicalSimilarityService.FindSimilarAnomaliesAsync(
-                        fieldName,
-                        label,
-                        hashVector,
-                        featureVector,
-                        duration,
-                        threshold);
-
-                results.Add(new
-                {
-                    AnomalyBoundary = boundary,
-                    Label = label,
-                    Similar = similar
-                });
-            }
+            var results =
+                await _historicalSimilarityService.FindSimilarAnomaliesAsync(masterIndex, fieldName);
 
             return Ok(results);
         }
+
 
 
     }

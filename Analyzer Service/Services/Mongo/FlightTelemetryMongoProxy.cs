@@ -121,11 +121,13 @@ namespace Analyzer_Service.Services.Mongo
 
 
         public async Task<IAsyncCursor<HistoricalAnomalyRecord>>GetHistoricalCandidatesAsync
-            (string parameterName, string label)
+            (string parameterName, string label, int masterIndex)
         {
             FilterDefinition<HistoricalAnomalyRecord> filter =
-                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.ParameterName, parameterName) &
-                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.Label, label);
+    Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.ParameterName, parameterName) &
+    Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.Label, label) &
+    Builders<HistoricalAnomalyRecord>.Filter.Ne(x => x.MasterIndex, masterIndex);
+
             return await _historicalAnomalies
                 .Find(filter)
                 .ToCursorAsync();
@@ -133,8 +135,20 @@ namespace Analyzer_Service.Services.Mongo
 
         public async Task StoreHistoricalAnomalyAsync(HistoricalAnomalyRecord record)
         {
-            await _historicalAnomalies.InsertOneAsync(record);
+            FilterDefinition<HistoricalAnomalyRecord> filter =
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.MasterIndex, record.MasterIndex) &
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.ParameterName, record.ParameterName) &
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.StartIndex, record.StartIndex) &
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.EndIndex, record.EndIndex);
+
+            bool exists = await _historicalAnomalies.Find(filter).AnyAsync();
+
+            if (!exists)
+            {
+                await _historicalAnomalies.InsertOneAsync(record);
+            }
         }
+
 
 
     }
