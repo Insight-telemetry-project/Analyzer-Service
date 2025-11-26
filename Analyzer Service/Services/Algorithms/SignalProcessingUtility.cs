@@ -26,17 +26,17 @@ namespace Analyzer_Service.Services.Algorithms
                 int windowLength = windowEnd - windowStart + 1;
 
                 double[] localWindow = new double[windowLength];
-                for (int i = 0; i < windowLength; i++)
+                for (int indexWindow = 0; indexWindow < windowLength; indexWindow++)
                 {
-                    localWindow[i] = inputValues[windowStart + i];
+                    localWindow[indexWindow] = inputValues[windowStart + indexWindow];
                 }
 
                 double median = ComputeMedian(localWindow);
 
                 double[] absoluteDeviation = new double[windowLength];
-                for (int i = 0; i < windowLength; i++)
+                for (int indexWindow = 0; indexWindow < windowLength; indexWindow++)
                 {
-                    absoluteDeviation[i] = Math.Abs(localWindow[i] - median);
+                    absoluteDeviation[indexWindow] = Math.Abs(localWindow[indexWindow] - median);
                 }
 
                 double mad = ComputeMedian(absoluteDeviation);
@@ -102,17 +102,5 @@ namespace Analyzer_Service.Services.Algorithms
             return 0.5 * (sorted[midIndex - 1] + sorted[midIndex]);
         }
 
-        public double ComputeMean(List<double> values, int startIndex, int endIndex)
-        {
-            double sum = 0.0;
-            int count = endIndex - startIndex;
-
-            for (int index = startIndex; index < endIndex; index++)
-            {
-                sum = sum + values[index];
-            }
-
-            return sum / count;
-        }
     }
 }

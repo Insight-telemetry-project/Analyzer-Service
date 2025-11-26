@@ -168,13 +168,13 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         {
             List<int> pruned = new List<int>();
 
-            for (int i = 0; i < currentEndpoints.Count; i++)
+            for (int indexEndpoints = 0; indexEndpoints < currentEndpoints.Count; indexEndpoints++)
             {
-                double partitionCost = SumPartitionCost(evaluatedPartitions[i]);
+                double partitionCost = SumPartitionCost(evaluatedPartitions[indexEndpoints]);
 
                 if (partitionCost <= bestCost + penaltyBeta)
                 {
-                    pruned.Add(currentEndpoints[i]);
+                    pruned.Add(currentEndpoints[indexEndpoints]);
                 }
             }
 

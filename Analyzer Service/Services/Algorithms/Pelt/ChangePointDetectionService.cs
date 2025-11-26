@@ -81,9 +81,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             List<int> result = new List<int>();
             double lastTime = double.NegativeInfinity;
 
-            for (int i = 0; i < breakpoints.Count; i++)
+            for (int indexBreakPoint = 0; indexBreakPoint < breakpoints.Count; indexBreakPoint++)
             {
-                int index = breakpoints[i];
+                int index = breakpoints[indexBreakPoint];
                 double timeValue = timeSeries[index - 1];
 
                 if (result.Count == 0 || timeValue - lastTime >= minGap)

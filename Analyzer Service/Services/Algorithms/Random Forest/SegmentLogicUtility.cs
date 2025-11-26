@@ -24,22 +24,20 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
         {
             List<double> meanValuesPerSegment = new List<double>(segmentBoundaries.Count);
 
-            for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
+            for (int indexSegment = 0; indexSegment < segmentBoundaries.Count; indexSegment++)
             {
-                SegmentBoundary segmentBoundary = segmentBoundaries[segmentIndex];
-                double sumOfValues = 0.0;
+                SegmentBoundary seg = segmentBoundaries[indexSegment];
 
-                for (int signalIndex = segmentBoundary.StartIndex; signalIndex < segmentBoundary.EndIndex; signalIndex++)
-                {
-                    sumOfValues += signalValues[signalIndex];
-                }
+                IEnumerable<double> slice = signalValues
+                    .Skip(seg.StartIndex)
+                    .Take(seg.EndIndex - seg.StartIndex);
 
-                double meanValue = sumOfValues / (segmentBoundary.EndIndex - segmentBoundary.StartIndex);
-                meanValuesPerSegment.Add(meanValue);
+                meanValuesPerSegment.Add(slice.Average());
             }
 
             return meanValuesPerSegment;
         }
+
 
         public List<SegmentClassificationResult> ClassifySegments(
             List<double> timeSeriesValues,

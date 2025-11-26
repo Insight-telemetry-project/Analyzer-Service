@@ -1,4 +1,5 @@
-﻿using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
+﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
 
 namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 {
@@ -11,7 +12,7 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 
             for (int index = 0; index < length; index++)
             {
-                if (Math.Abs(hashA[index] - hashB[index]) > 0.001)
+                if (Math.Abs(hashA[index] - hashB[index]) > ConstantAnomalyDetection.HASH_THRESHOLD)
                 {
                     differenceCount++;
                 }
@@ -68,9 +69,9 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
         public double ComputeWeightedScore(double hashSimilarity, double featureSimilarity, double durationSimilarity)
         {
             double finalScore =
-                (0.75 * hashSimilarity) +
-                (0.2 * featureSimilarity) +
-                (0.05 * durationSimilarity);
+                (ConstantAnomalyDetection.HASH_SIMILARITY * hashSimilarity) +
+                (ConstantAnomalyDetection.FEATURE_SIMILARITY * featureSimilarity) +
+                (ConstantAnomalyDetection.DURATION_SIMILARITY * durationSimilarity);
 
             return finalScore;
         }

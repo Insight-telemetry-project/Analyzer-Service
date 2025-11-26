@@ -5,7 +5,10 @@ using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using MongoDB.Driver;
-
+using System.Collections.Generic;
+using System.Reflection.Metadata;
+using System.Threading.Tasks;
+using Analyzer_Service.Models.Constant;
 namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 {
     public class HistoricalAnomalySimilarityService : IHistoricalAnomalySimilarityService
@@ -13,6 +16,7 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
         private readonly IFlightTelemetryMongoProxy mongoProxy;
         private readonly IHistoricalAnomalySimilarityLogic logic;
         private readonly ISegmentClassificationService segmentClassifier;
+
         public HistoricalAnomalySimilarityService(
             IFlightTelemetryMongoProxy mongoProxy,
             IHistoricalAnomalySimilarityLogic logic,
@@ -24,35 +28,24 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
         }
 
         public async Task<List<HistoricalSimilarityResult>> FindSimilarAnomaliesAsync(
-    int masterIndex,
-    string parameterName)
+            int masterIndex,string parameterName)
         {
-            var classification = await segmentClassifier.ClassifyWithAnomaliesAsync(
-                masterIndex,
-                parameterName,
-                0,
-                0);
+            var classification = await segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex,parameterName,0,0);
 
             List<SegmentClassificationResult> segments = classification.Segments;
-            List<int> anomalyIndices = classification.Anomalies;
+            List<int> anomalyIndices = classification.AnomalyIndexes;
+
 
             List<HistoricalSimilarityResult> finalResults = new List<HistoricalSimilarityResult>();
 
             foreach (int anomalyIndex in anomalyIndices)
             {
-                SegmentClassificationResult segment = segments[anomalyIndex];
-
-                string label = segment.Label;
-                double[] newHashVector = segment.HashVector;
-                Dictionary<string, double> newFeatureVector = segment.FeatureValues;
-                SegmentBoundary boundary = segment.Segment;
-                double newDuration = boundary.EndIndex - boundary.StartIndex;
-                double threshold = 0.75;
+                SegmentClassificationResult current = segments[anomalyIndex];
 
                 IAsyncCursor<HistoricalAnomalyRecord> cursor =
                     await mongoProxy.GetHistoricalCandidatesAsync(
                         parameterName,
-                        label,
+                        current.Label,
                         masterIndex);
 
                 while (await cursor.MoveNextAsync())
@@ -61,30 +54,13 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
                     {
                         if (record.MasterIndex == masterIndex)
                             continue;
-                        double[] existingHash = ParseHash(record.PatternHash);
-                        Dictionary<string, double> existingFeatures = record.FeatureValues;
-                        double existingDuration = record.EndIndex - record.StartIndex;
 
-                        double hashSimilarity = logic.CompareHashesFuzzy(existingHash, newHashVector);
-                        double featureSimilarity = logic.CompareFeatureVectors(existingFeatures, newFeatureVector);
-                        double durationSimilarity = logic.CompareDurationSimilarity(existingDuration, newDuration);
+                        SimilarityScores similarity = ComputeSimilarity(record, current);
 
-                        double finalScore = logic.ComputeWeightedScore(
-                            hashSimilarity,
-                            featureSimilarity,
-                            durationSimilarity);
-
-                        if (finalScore >= threshold)
+                        if (similarity.FinalScore >= ConstantAnomalyDetection.FINAL_SCORE)
                         {
-                            HistoricalSimilarityResult result = new HistoricalSimilarityResult
-                            {
-                                MasterIndex = record.MasterIndex,
-                                SegmentIndex = record.StartIndex,
-                                FinalScore = finalScore,
-                                HashSimilarity = hashSimilarity,
-                                FeatureSimilarity = featureSimilarity,
-                                DurationSimilarity = durationSimilarity
-                            };
+                            HistoricalSimilarityResult result =
+                                CreateResult(record, current, similarity);
 
                             finalResults.Add(result);
                         }
@@ -95,12 +71,58 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
             return finalResults;
         }
 
+        private SimilarityScores ComputeSimilarity(HistoricalAnomalyRecord record,SegmentClassificationResult current)
+        {
+            double[] existingHash = ParseHash(record.PatternHash);
+            double[] newHash = current.HashVector;
+
+            double hashSim = logic.CompareHashesFuzzy(existingHash, newHash);
+            double featureSim = logic.CompareFeatureVectors(record.FeatureValues, current.FeatureValues);
+
+            double existingDuration = record.EndIndex - record.StartIndex;
+            double newDuration = current.Segment.EndIndex - current.Segment.StartIndex;
+
+            double durationSim = logic.CompareDurationSimilarity(existingDuration, newDuration);
+
+            double final = logic.ComputeWeightedScore(hashSim, featureSim, durationSim);
+
+            return new SimilarityScores
+            {
+                FinalScore = final,
+                HashSimilarity = hashSim,
+                FeatureSimilarity = featureSim,
+                DurationSimilarity = durationSim
+            };
+        }
+
+
+        private HistoricalSimilarityResult CreateResult(HistoricalAnomalyRecord record,SegmentClassificationResult current,SimilarityScores similarityScores)
+        {
+            return new HistoricalSimilarityResult
+            {
+                MasterIndex = record.MasterIndex,
+
+                HistoricalStartIndex = record.StartIndex,
+                HistoricalEndIndex = record.EndIndex,
+                HistoricalLabel = record.Label,
+
+                CurrentStartIndex = current.Segment.StartIndex,
+                CurrentEndIndex = current.Segment.EndIndex,
+                CurrentLabel = current.Label,
+
+                FinalScore = similarityScores.FinalScore,
+                HashSimilarity = similarityScores.HashSimilarity,
+                FeatureSimilarity = similarityScores.FeatureSimilarity,
+                DurationSimilarity = similarityScores.DurationSimilarity
+            };
+        }
 
 
         private double[] ParseHash(string hash)
         {
-            string[] parts = hash.Split(',');
+            string[] parts = hash.Split(ConstantAnomalyDetection.HASH_SPLIT);
             int length = parts.Length;
+
             double[] values = new double[length];
 
             for (int index = 0; index < length; index++)

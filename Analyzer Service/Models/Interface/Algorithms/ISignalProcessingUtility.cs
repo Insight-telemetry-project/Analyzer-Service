@@ -8,6 +8,5 @@
 
         double ComputeMedian(double[] values);
 
-        double ComputeMean(List<double> values, int startIndex, int endIndex);
     }
 }

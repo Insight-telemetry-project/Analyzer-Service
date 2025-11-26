@@ -12,5 +12,18 @@
 
         public const int SHAPE_LENGTH = 32;
         public const int ROUND_DECIMALS = 1;
+
+
+        public const double FINAL_SCORE = 0.75;
+        public const double HASH_SIMILARITY = 0.75;
+        public const double FEATURE_SIMILARITY = 0.2;
+        public const double DURATION_SIMILARITY = 0.05;
+
+        public const double HASH_THRESHOLD = 0.001;
+
+        public const char HASH_SPLIT = ',';
+
+
+
     }
 }

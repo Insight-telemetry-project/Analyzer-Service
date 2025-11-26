@@ -3,10 +3,19 @@
     public class HistoricalSimilarityResult
     {
         public int MasterIndex { get; set; }
-        public int SegmentIndex { get; set; }
+
+        public int HistoricalStartIndex { get; set; }
+        public int HistoricalEndIndex { get; set; }
+        public string HistoricalLabel { get; set; }
+
+        public int CurrentStartIndex { get; set; }
+        public int CurrentEndIndex { get; set; }
+        public string CurrentLabel { get; set; }
+
         public double FinalScore { get; set; }
         public double HashSimilarity { get; set; }
         public double FeatureSimilarity { get; set; }
         public double DurationSimilarity { get; set; }
     }
+
 }

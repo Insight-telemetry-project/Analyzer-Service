@@ -105,31 +105,22 @@ namespace Analyzer_Service.Controllers
             List<SegmentClassificationResult> result = await _segmentClassifier.ClassifyAsync(masterIndex, fieldName);
             return Ok(result);
         }
+
+
+
+
         [HttpGet("segments-with-anomalies/{masterIndex}/{fieldName}")]
         public async Task<IActionResult> GetSegmentsWithAnomalies(int masterIndex, string fieldName)
         {
-            var result = await _segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex, fieldName,0,0);
-
-            return Ok(new
-            {
-                segments = result.Segments,
-                anomalies = result.Anomalies
-            });
+            SegmentAnalysisResult result =await _segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex, fieldName, 0, 0);
+            return Ok(result);
         }
 
         [HttpGet("segments-with-anomalies/{masterIndex}/{fieldName}/{startIndex}/{endIndex}")]
         public async Task<IActionResult> ClassifyWithRange(int masterIndex,string fieldName,int startIndex,int endIndex){
-            var result = await _segmentClassifier.ClassifyWithAnomaliesAsync(
-            masterIndex,
-            fieldName,
-            startIndex,
-            endIndex);
+            SegmentAnalysisResult result =await _segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex,fieldName,startIndex,endIndex);
+            return Ok(result);
 
-            return Ok(new
-            {
-                segments = result.Segments,
-                anomalies = result.Anomalies
-            });
         }
 
 
@@ -139,14 +130,10 @@ namespace Analyzer_Service.Controllers
         [HttpGet("similar-anomalies/{masterIndex}/{fieldName}")]
         public async Task<IActionResult> FindSimilarAnomalies(int masterIndex, string fieldName)
         {
-            var results =
-                await _historicalSimilarityService.FindSimilarAnomaliesAsync(masterIndex, fieldName);
+            var results =await _historicalSimilarityService.FindSimilarAnomaliesAsync(masterIndex, fieldName);
 
             return Ok(results);
         }
-
-
-
     }
 }
 
