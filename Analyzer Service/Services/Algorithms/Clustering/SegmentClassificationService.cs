@@ -136,9 +136,28 @@ namespace Analyzer_Service.Services
 
             AttachHashVectors(timeSeriesValues, processedSignal, mergedSegmentResults);
 
+            //List<int> detectedAnomalies =
+            //    anomalyDetectionUtility.DetectAnomalies(timeSeriesValues, processedSignal, mergedSegments,
+            //                                            mergedSegmentResults.Select(segment => segment.Label).ToList(),featureList);
             List<int> detectedAnomalies =
-                anomalyDetectionUtility.DetectAnomalies(timeSeriesValues, processedSignal, mergedSegments,
-                                                        mergedSegmentResults.Select(segment => segment.Label).ToList(),featureList);
+    anomalyDetectionUtility.DetectAnomalies(
+        timeSeriesValues,
+        processedSignal,
+        mergedSegments,
+        mergedSegmentResults.Select(segment => segment.Label).ToList(),
+        featureList);
+
+            List<int> anomalySampleIndexes = new List<int>();
+
+            foreach (int segIndex in detectedAnomalies)
+            {
+                SegmentBoundary boundary = mergedSegments[segIndex];
+                string label = mergedSegmentResults[segIndex].Label;
+
+                int repIndex = PickRepresentativePoint(processedSignal, boundary, label);
+
+                anomalySampleIndexes.Add(repIndex);
+            }
 
             await StoreAnomaliesAsync(masterIndex, fieldName, timeSeriesValues, processedSignal,mergedSegments,
                 mergedSegmentResults, detectedAnomalies, featureList);
@@ -153,7 +172,7 @@ namespace Analyzer_Service.Services
                 Segments = mergedSegmentResults,
                 SegmentBoundaries = mergedSegments,
                 //FeatureList = featureList,
-                AnomalyIndexes = detectedAnomalies
+                AnomalyIndexes = anomalySampleIndexes
             };
 
         }
@@ -224,14 +243,16 @@ namespace Analyzer_Service.Services
             {
                 int index = anomalyIndexes[indexForIndex];
                 SegmentBoundary boundary = segments[index];
-
-                double startTime = timeSeriesValues[boundary.StartIndex];
-                double endTime = timeSeriesValues[boundary.EndIndex - 1];
-                double midpoint = 0.5 * (startTime + endTime);
-
-                await flightTelemetryMongoProxy.StoreAnomalyAsync(masterIndex, fieldName, midpoint);
-
+                
                 string label = results[index].Label;
+
+
+                int repIndex = PickRepresentativePoint(processedSignal, boundary, label);
+                double repTime = timeSeriesValues[repIndex];
+
+                await flightTelemetryMongoProxy.StoreAnomalyAsync(masterIndex, fieldName, repTime);
+
+
                 Dictionary<string, double> features = featureList[index];
 
                 string hash = patternHashingUtility.ComputeHash(timeSeriesValues, processedSignal, boundary);
@@ -275,5 +296,42 @@ namespace Analyzer_Service.Services
 
 
         }
+        private int PickRepresentativePoint(
+    List<double> processedSignal,
+    SegmentBoundary segment,
+    string label)
+        {
+            int start = segment.StartIndex;
+            int end = segment.EndIndex;
+
+            double[] segmentValues = processedSignal
+                                     .Skip(start)
+                                     .Take(end - start)
+                                     .ToArray();
+
+            if (label == "RampDown" || label == "SpikeLow" || label == "BelowBound")
+            {
+                int localIndex = Array.IndexOf(segmentValues, segmentValues.Min());
+                return start + localIndex;
+            }
+
+            if (label == "RampUp" || label == "SpikeHigh" || label == "AboveBound")
+            {
+                int localIndex = Array.IndexOf(segmentValues, segmentValues.Max());
+                return start + localIndex;
+            }
+
+            if (label == "Oscillation")
+            {
+                double maxAbs = segmentValues.Max(v => Math.Abs(v));
+                int localIndex = Array.IndexOf(segmentValues, maxAbs);
+                return start + localIndex;
+            }
+
+            double absMax = segmentValues.Max(v => Math.Abs(v));
+            int idxAbs = Array.IndexOf(segmentValues, absMax);
+            return start + idxAbs;
+        }
+
     }
 }
