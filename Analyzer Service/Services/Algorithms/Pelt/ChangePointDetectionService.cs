@@ -56,6 +56,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                         ConstantPelt.PENALTY_BETA)
                     .ToList();
 
+
+
+
             List<int> filtered =
                 ApplyMinimumGap(rawBreakpoints, timeSeries.ToArray(), ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS);
 

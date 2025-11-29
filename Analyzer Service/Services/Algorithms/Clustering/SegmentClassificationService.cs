@@ -96,11 +96,13 @@ namespace Analyzer_Service.Services
 
         private List<double> PreprocessSignal(List<double> signalValues)
         {
-            double[] filteredSignal =
-                signalProcessingUtility.ApplyHampel(
-                    signalValues.ToArray(),
-                    ConstantAlgorithm.HAMPEL_WINDOW,
-                    ConstantAlgorithm.HAMPEL_SIGMA);
+            //double[] filteredSignal =
+            //    signalProcessingUtility.ApplyHampel(
+            //        signalValues.ToArray(),
+            //        ConstantAlgorithm.HAMPEL_WINDOW,
+            //        ConstantAlgorithm.HAMPEL_SIGMA);
+
+            double[] filteredSignal = signalValues.ToArray();
 
             List<double> normalizedSignal =
                 signalProcessingUtility.ApplyZScore(filteredSignal);
@@ -113,6 +115,7 @@ namespace Analyzer_Service.Services
         public async Task<SegmentAnalysisResult> ClassifyWithAnomaliesAsync(
         int masterIndex, string fieldName, int startIndex, int endIndex)
         {
+            constantPelt();
             (List<double> timeSeriesValues, List<double> signalValues) = await LoadRangeAsync(masterIndex, fieldName, startIndex, endIndex);
 
             List<SegmentBoundary> detectedSegments = await DetectSegments(masterIndex, fieldName, signalValues.Count);
@@ -142,14 +145,14 @@ namespace Analyzer_Service.Services
 
             return new SegmentAnalysisResult
             {
-                MasterIndex = masterIndex,
-                FieldName = fieldName,
-                TimeSeries = timeSeriesValues,
-                Signal = signalValues,
-                ProcessedSignal = processedSignal,
+                //MasterIndex = masterIndex,
+                //FieldName = fieldName,
+                //TimeSeries = timeSeriesValues,
+                //Signal = signalValues,
+                //ProcessedSignal = processedSignal,
                 Segments = mergedSegmentResults,
                 SegmentBoundaries = mergedSegments,
-                FeatureList = featureList,
+                //FeatureList = featureList,
                 AnomalyIndexes = detectedAnomalies
             };
 
@@ -248,6 +251,29 @@ namespace Analyzer_Service.Services
                 await flightTelemetryMongoProxy.StoreHistoricalAnomalyAsync(record);
             }
         }
+        public void constantPelt()
+        {
+            ConstantPelt.SAMPLING_JUMP = 10;
+            ConstantPelt.PENALTY_BETA = 0.5;
+            ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS = 1.2;
 
+
+            ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS = 0.5;
+            
+            ConstantAnomalyDetection.MINIMUM_RANGEZ = 1.2;
+            ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD = 4;
+
+            ConstantAnomalyDetection.FINAL_SCORE = 0.9;
+            ConstantAnomalyDetection.HASH_SIMILARITY = 0.55;
+            ConstantAnomalyDetection.FEATURE_SIMILARITY = 0.2;
+            ConstantAnomalyDetection.DURATION_SIMILARITY = 0.05;
+
+            ConstantAnomalyDetection.HASH_THRESHOLD = 0.015;
+            ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX = 4;
+            ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION = 0.1;
+            ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 10;
+
+
+        }
     }
 }

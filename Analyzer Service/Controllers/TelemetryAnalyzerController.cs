@@ -89,7 +89,7 @@ namespace Analyzer_Service.Controllers
         [HttpGet("analyze-flight/{masterIndex}")]
         public async Task<IActionResult> AnalyzeFlight(int masterIndex)
         {
-            object result = await _flightCausality.AnalyzeFlightAsync(masterIndex);
+            FlightCausalityAnalysisResult result = await _flightCausality.AnalyzeFlightAsync(masterIndex);
             return Ok(result);
         }
 

@@ -13,7 +13,15 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
         {
             SegmentLabel.PatternOK,
             SegmentLabel.Steady,
-            SegmentLabel.Neutral
+            SegmentLabel.Neutral,
+
+
+            //SegmentLabel.RampUp,
+            //SegmentLabel.RampDown,
+            //SegmentLabel.Oscillation
+
+
+
         };
 
         public AnomalyDetectionUtility(IPatternHashingUtility patternHashingUtility)
