@@ -147,6 +147,26 @@ namespace Analyzer_Service.Services
         mergedSegmentResults.Select(segment => segment.Label).ToList(),
         featureList);
 
+
+            // סינון אנומליות חלשות מאוד
+            detectedAnomalies = detectedAnomalies
+                .Where(i => featureList[i]["range_z"] >= ConstantAnomalyDetection.MIN_SIGNIFICANT_RANGE_Z)
+                .ToList();
+
+            // חישוב חוזק לכל אנומליה
+            var anomalyStrengthPairs = detectedAnomalies
+                .Select(i => new
+                {
+                    Index = i,
+                    Strength = ComputeAnomalyStrength(featureList[i])
+                })
+                .OrderByDescending(p => p.Strength)
+                .ToList();
+            detectedAnomalies = anomalyStrengthPairs
+    .Take(ConstantAnomalyDetection.MAX_ANOMALIES_PER_FLIGHT)
+    .Select(p => p.Index)
+    .ToList();
+
             List<int> anomalySampleIndexes = new List<int>();
 
             foreach (int segIndex in detectedAnomalies)
@@ -306,7 +326,7 @@ namespace Analyzer_Service.Services
 
             double[] segmentValues = processedSignal
                                      .Skip(start)
-                                     .Take(end - start)
+                                     .Take(end - start + 1)
                                      .ToArray();
 
             if (label == "RampDown" || label == "SpikeLow" || label == "BelowBound")
@@ -324,13 +344,23 @@ namespace Analyzer_Service.Services
             if (label == "Oscillation")
             {
                 double maxAbs = segmentValues.Max(v => Math.Abs(v));
-                int localIndex = Array.IndexOf(segmentValues, maxAbs);
+                int localIndex = Array.IndexOf(segmentValues, segmentValues.First(v => Math.Abs(v) == maxAbs));
+
                 return start + localIndex;
             }
 
             double absMax = segmentValues.Max(v => Math.Abs(v));
             int idxAbs = Array.IndexOf(segmentValues, absMax);
             return start + idxAbs;
+        }
+
+
+        private double ComputeAnomalyStrength(Dictionary<string, double> features)
+        {
+            double range = Math.Abs(features["range_z"]);
+            double energy = features["energy_z"];
+
+            return range * 0.7 + energy * 0.3;
         }
 
     }

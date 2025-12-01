@@ -21,5 +21,9 @@
         public const int SHAPE_LENGTH = 32;
         public const int ROUND_DECIMALS = 1;
         public const char HASH_SPLIT = ',';
+
+        public const int MAX_ANOMALIES_PER_FLIGHT = 20;
+        public const double MIN_SIGNIFICANT_RANGE_Z = 1.5;
+
     }
 }
