@@ -124,9 +124,9 @@ namespace Analyzer_Service.Services.Mongo
             (string parameterName, string label, int masterIndex)
         {
             FilterDefinition<HistoricalAnomalyRecord> filter =
-    Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.ParameterName, parameterName) &
-    Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.Label, label) &
-    Builders<HistoricalAnomalyRecord>.Filter.Ne(x => x.MasterIndex, masterIndex);
+    Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.ParameterName, parameterName) &
+    Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.Label, label) &
+    Builders<HistoricalAnomalyRecord>.Filter.Ne(flight => flight.MasterIndex, masterIndex);
 
             return await _historicalAnomalies
                 .Find(filter)
@@ -136,10 +136,10 @@ namespace Analyzer_Service.Services.Mongo
         public async Task StoreHistoricalAnomalyAsync(HistoricalAnomalyRecord record)
         {
             FilterDefinition<HistoricalAnomalyRecord> filter =
-                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.MasterIndex, record.MasterIndex) &
-                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.ParameterName, record.ParameterName) &
-                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.StartIndex, record.StartIndex) &
-                Builders<HistoricalAnomalyRecord>.Filter.Eq(x => x.EndIndex, record.EndIndex);
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.MasterIndex, record.MasterIndex) &
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.ParameterName, record.ParameterName) &
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.StartIndex, record.StartIndex) &
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.EndIndex, record.EndIndex);
 
             bool exists = await _historicalAnomalies.Find(filter).AnyAsync();
 

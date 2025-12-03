@@ -25,5 +25,9 @@
         public const int MAX_ANOMALIES_PER_FLIGHT = 20;
         public const double MIN_SIGNIFICANT_RANGE_Z = 1.5;
 
+        public const double RANGEZ_SCORE_THRESHOLD = 0.7;
+        public const double ENERGYZ_SCORE_THRESHOLD = 0.3;
+
+
     }
 }

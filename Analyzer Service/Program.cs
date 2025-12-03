@@ -51,6 +51,7 @@ builder.Services.AddSingleton<IRandomForestOperations, RandomForestOperations>()
 builder.Services.AddSingleton<ISegmentLogicUtility, SegmentLogicUtility>();
 builder.Services.AddSingleton<IHistoricalAnomalySimilarityLogic, HistoricalAnomalySimilarityLogic>();
 builder.Services.AddSingleton<IHistoricalAnomalySimilarityService, HistoricalAnomalySimilarityService>();
+builder.Services.AddSingleton<ISignalNoiseTuning, SignalNoiseTuning>();
 
 
 
