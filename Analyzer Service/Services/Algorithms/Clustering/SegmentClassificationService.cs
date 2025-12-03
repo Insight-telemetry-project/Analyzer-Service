@@ -34,8 +34,6 @@ namespace Analyzer_Service.Services
             ISignalProcessingUtility signalProcessingUtility,
             IFeatureExtractionUtility featureExtractionUtility,
             IAnomalyDetectionUtility anomalyDetectionUtility,
-            IRandomForestModelProvider modelProvider,
-            IRandomForestOperations randomForestOperations,
             ISegmentLogicUtility segmentLogicUtility,
             IFlightTelemetryMongoProxy flightTelemetryMongoProxy,
             IPatternHashingUtility patternHashingUtility,
@@ -52,27 +50,7 @@ namespace Analyzer_Service.Services
             this.signalNoiseTuning = signalNoiseTuning;
         }
 
-        public async Task<List<SegmentClassificationResult>> ClassifyAsync(int masterIndex, string fieldName)
-        {
-            SignalSeries signalSeries = await LoadFlightData(masterIndex, fieldName);
-
-            List<double> timeSeriesValues = signalSeries.Time;
-            List<double> signalValues = signalSeries.Values;
-
-            List<SegmentBoundary> detectedSegments =
-                await DetectSegments(masterIndex, fieldName, signalValues.Count);
-
-            List<double> processedSignalValues = PreprocessSignal(signalValues);
-
-            List<double> meanValuesPerSegment =
-                segmentLogicUtility.ComputeMeansPerSegment(processedSignalValues, detectedSegments);
-
-            return segmentLogicUtility.ClassifySegments(
-                timeSeriesValues,
-                processedSignalValues,
-                detectedSegments,
-                meanValuesPerSegment);
-        }
+        
 
         private async Task<SignalSeries> LoadFlightData(int masterIndex, string fieldName)
         {

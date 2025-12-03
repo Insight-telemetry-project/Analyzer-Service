@@ -19,118 +19,51 @@ namespace Analyzer_Service.Controllers
     [Route("[controller]")]
     public class TelemetryAnalyzerController : ControllerBase
     {
-        private readonly IFlightTelemetryMongoProxy _flightTelemetryMongoProxy;
-        private readonly IGrangerCausalityAnalyzer _grangerAnalyzer;
-        private readonly IPrepareFlightData _flightDataPreparer;
         private readonly IFlightCausality _flightCausality;
-        private readonly ICcmCausalityAnalyzer _ccmAnalyzer;
-        private readonly IChangePointDetectionService _changePointDetectionService;
         private readonly ISegmentClassificationService _segmentClassifier;
         private readonly IHistoricalAnomalySimilarityService _historicalSimilarityService;
 
 
         public TelemetryAnalyzerController(
-            IFlightTelemetryMongoProxy flightTelemetryMongoProxy,
-            IGrangerCausalityAnalyzer grangerCausalityAnalyzer,
-            IPrepareFlightData flightDataPreparer,
             IFlightCausality flightCausalityService,
-            ICcmCausalityAnalyzer ccmAnalyzer,
-            IChangePointDetectionService changePointDetectionService,
             ISegmentClassificationService segmentClassifier,
             IHistoricalAnomalySimilarityService historicalSimilarityService
 
 )
         {
-            _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
-            _grangerAnalyzer = grangerCausalityAnalyzer;
-            _flightDataPreparer = flightDataPreparer;
             _flightCausality = flightCausalityService;
-            _ccmAnalyzer = ccmAnalyzer;
-            _changePointDetectionService = changePointDetectionService;
             _segmentClassifier = segmentClassifier;
             _historicalSimilarityService = historicalSimilarityService;
 
         }
 
-        [HttpGet("fields/{masterIndex}")]
-        public async Task<IActionResult> GetFieldsByMasterIndex(int masterIndex)
+
+
+        [HttpGet("causality-analysis/{flightId}")]
+        public async Task<IActionResult> AnalyzeFlightCausalityById(int flightId)
         {
-            IAsyncCursor<TelemetrySensorFields> cursor =
-                await _flightTelemetryMongoProxy.GetCursorFromFieldsAsync(masterIndex);
-
-            List<TelemetrySensorFields> list = new List<TelemetrySensorFields>();
-
-            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
-            {
-                list.Add(record);
-            }
-
-            if (list.Count == 0)
-            {
-                return NotFound($"No TelemetryFields found for Master Index {masterIndex}");
-            }
-
-            return Ok(list);
-        }
-
-
-        [HttpGet("flight/{masterIndex}")]
-        public async Task<IActionResult> GetFlightByMasterIndex(int masterIndex)
-        {
-            List<TelemetryFlightData> result = await _flightTelemetryMongoProxy.GetFromFlightDataAsync(masterIndex);
-            if (result.Count == 0)
-            {
-                return NotFound($"No TelemetryFlightData found for Master Index {masterIndex}");
-            }
+            FlightCausalityAnalysisResult result = await _flightCausality.AnalyzeFlightAsync(flightId);
             return Ok(result);
         }
 
 
-        [HttpGet("analyze-flight/{masterIndex}")]
-        public async Task<IActionResult> AnalyzeFlight(int masterIndex)
+        [HttpGet("segments-with-anomalies/{flightId}/{fieldName}")]
+        public async Task<IActionResult> AnalyzeFlightSegments(int flightId,string fieldName,int? startIndex = null,int? endIndex = null)
         {
-            FlightCausalityAnalysisResult result = await _flightCausality.AnalyzeFlightAsync(masterIndex);
-            return Ok(result);
-        }
+            int start = startIndex ?? 0;
+            int end = endIndex ?? 0;
 
-        [HttpGet("change-points/{masterIndex}/{fieldName}")]
-        public async Task<IActionResult> GetChangePoints(int masterIndex, string fieldName)
-        {
-            return Ok(await _changePointDetectionService.DetectChangePointsAsync(masterIndex, fieldName));
-        }
+            var result = await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId,fieldName,start,end);
 
-        [HttpGet("segments/{masterIndex}/{fieldName}")]
-        public async Task<IActionResult> GetSegmentsWithLabels(int masterIndex, string fieldName)
-        {
-            List<SegmentClassificationResult> result = await _segmentClassifier.ClassifyAsync(masterIndex, fieldName);
             return Ok(result);
         }
 
 
 
-
-        [HttpGet("segments-with-anomalies/{masterIndex}/{fieldName}")]
-        public async Task<IActionResult> GetSegmentsWithAnomalies(int masterIndex, string fieldName)
+        [HttpGet("similar-anomalies/{flightId}/{fieldName}")]
+        public async Task<IActionResult> FindSimilarAnomalies(int flightId, string fieldName)
         {
-            SegmentAnalysisResult result =await _segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex, fieldName, 0, 0);
-            return Ok(result);
-        }
-
-        [HttpGet("segments-with-anomalies/{masterIndex}/{fieldName}/{startIndex}/{endIndex}")]
-        public async Task<IActionResult> ClassifyWithRange(int masterIndex,string fieldName,int startIndex,int endIndex){
-            SegmentAnalysisResult result =await _segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex,fieldName,startIndex,endIndex);
-            return Ok(result);
-
-        }
-
-
-
-
-
-        [HttpGet("similar-anomalies/{masterIndex}/{fieldName}")]
-        public async Task<IActionResult> FindSimilarAnomalies(int masterIndex, string fieldName)
-        {
-            var results =await _historicalSimilarityService.FindSimilarAnomaliesAsync(masterIndex, fieldName);
+            var results =await _historicalSimilarityService.FindSimilarAnomaliesAsync(flightId, fieldName);
 
             return Ok(results);
         }
