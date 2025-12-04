@@ -28,6 +28,9 @@
         public const double RANGEZ_SCORE_THRESHOLD = 0.7;
         public const double ENERGYZ_SCORE_THRESHOLD = 0.3;
 
+        public const double DURATION_HASH_THRESHOLD = 0.0;
+        public const double DURATION_HASH_MIN = 1.0;
+
 
     }
 }

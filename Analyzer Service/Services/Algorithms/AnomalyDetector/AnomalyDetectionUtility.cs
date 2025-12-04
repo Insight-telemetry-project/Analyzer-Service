@@ -26,7 +26,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             List<double> processedSignal,
             List<SegmentBoundary> segmentBoundaries,
             List<string> segmentLabelList,
-            List<Dictionary<string, double>> featureValueList)
+            List<Dictionary<string, double >> featureValueList)
         {
             int totalSegmentCount = segmentBoundaries.Count;
 

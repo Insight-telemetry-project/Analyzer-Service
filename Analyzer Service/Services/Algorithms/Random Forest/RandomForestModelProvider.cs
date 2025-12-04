@@ -1,4 +1,5 @@
 ﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
 using System.Text.Json;
 
@@ -8,11 +9,11 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
     {
        public JsonDocument ModelDocument { get; }
 
-        public List<string> FeatureNames { get; }
-        public List<string> Labels { get; }
+        List<string> FeatureNames { get; }
+        List<string> Labels { get; }
 
-        public double[] ScalerMean { get; }
-        public double[] ScalerScale { get; }
+        double[] ScalerMean { get; }
+        double[] ScalerScale { get; }
 
         public RandomForestModelProvider()
         {
@@ -51,6 +52,17 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
                 .EnumerateArray()
                 .Select(field => field.GetDouble())
                 .ToArray();
+        }
+
+        public RandomForestModel GetModel()
+        {
+            return new RandomForestModel(
+                ModelDocument.RootElement,
+                Labels.ToArray(),
+                FeatureNames.ToArray(),
+                ScalerMean,
+                ScalerScale
+            );
         }
 
         public Dictionary<string, double> BuildFeatureDictionary(double[] featureVector)

@@ -1,28 +1,24 @@
-﻿using System;
+﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
+using System;
 using System.Linq;
 using System.Text.Json;
-using Analyzer_Service.Models.Constant;
-using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
+using static MongoDB.Driver.WriteConcern;
 
 namespace Analyzer_Service.Services.Algorithms.Random_Forest
 {
     public class RandomForestOperations : IRandomForestOperations
     {
-        public double[] ScaleFeatures(double[] featureVector, JsonElement meanElement, JsonElement scaleElement)
+        public double[] ScaleFeatures(double[] featureVector, double[] meanArray, double[] scaleArray)
         {
             int featureCount = featureVector.Length;
             double[] scaled = new double[featureCount];
 
-            JsonElement.ArrayEnumerator meanEnum = meanElement.EnumerateArray();
-            JsonElement.ArrayEnumerator scaleEnum = scaleElement.EnumerateArray();
-
             for (int index = 0; index < featureCount; index++)
             {
-                meanEnum.MoveNext();
-                scaleEnum.MoveNext();
-
-                double mean = meanEnum.Current.GetDouble();
-                double scale = scaleEnum.Current.GetDouble();
+                double mean = meanArray[index];
+                double scale = scaleArray[index];
 
                 if (Math.Abs(scale) < ConstantAlgorithm.Epsilon)
                     scale = 1.0;
@@ -35,22 +31,37 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 
         public int PredictTree(JsonElement tree, double[] scaledFeatures)
         {
-            int[] featureIndex = tree.GetProperty(ConstantRandomForest.FEATURE_JSON)
-                                      .EnumerateArray().Select(field => field.GetInt32()).ToArray();
+            int[] featureIndex = tree
+                .GetProperty(ConstantRandomForest.FEATURE_JSON)
+                .EnumerateArray()
+                .Select(value => value.GetInt32())
+                .ToArray();
 
-            double[] threshold = tree.GetProperty(ConstantRandomForest.THRESHOLD_JSON)
-                                      .EnumerateArray().Select(field => field.GetDouble()).ToArray();
+            double[] threshold = tree
+                .GetProperty(ConstantRandomForest.THRESHOLD_JSON)
+                .EnumerateArray()
+                .Select(value => value.GetDouble())
+                .ToArray();
 
-            int[] left = tree.GetProperty(ConstantRandomForest.CHILDREN_LEFT_JSON)
-                               .EnumerateArray().Select(field => field.GetInt32()).ToArray();
+            int[] left = tree
+                .GetProperty(ConstantRandomForest.CHILDREN_LEFT_JSON)
+                .EnumerateArray()
+                .Select(value => value.GetInt32())
+                .ToArray();
 
-            int[] right = tree.GetProperty(ConstantRandomForest.CHILDREN_RIGHT_JSON)
-                                .EnumerateArray().Select(field => field.GetInt32()).ToArray();
+            int[] right = tree
+                .GetProperty(ConstantRandomForest.CHILDREN_RIGHT_JSON)
+                .EnumerateArray()
+                .Select(value => value.GetInt32())
+                .ToArray();
 
             double[][] valueMatrix =
                 tree.GetProperty(ConstantRandomForest.VALUE_JSON)
                     .EnumerateArray()
-                    .Select(node => node.EnumerateArray().Select(vector => vector.GetDouble()).ToArray())
+                    .Select(node =>
+                        node.EnumerateArray()
+                            .Select(value => value.GetDouble())
+                            .ToArray())
                     .ToArray();
 
             int node = 0;
@@ -61,25 +72,18 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
                 node = (scaledFeatures[feature] <= threshold[node]) ? left[node] : right[node];
             }
 
-            double[] classVotes = valueMatrix[node];
-            return Array.IndexOf(classVotes, classVotes.Max());
+            double[] votes = valueMatrix[node];
+            return Array.IndexOf(votes, votes.Max());
         }
 
-        public string PredictLabel(IRandomForestModelProvider provider, double[] rawFeatures)
+        public string PredictLabel(RandomForestModel model, double[] rawFeatures)
         {
-            JsonElement root = provider.ModelDocument.RootElement;
+            double[] scaled = ScaleFeatures(rawFeatures, model.ScalerMean, model.ScalerScale);
 
-            double[] scaled =
-                ScaleFeatures(
-                    rawFeatures,
-                    root.GetProperty(ConstantRandomForest.SCALER_JSON).GetProperty(ConstantRandomForest.MEAN_JSON),
-                    root.GetProperty(ConstantRandomForest.SCALER_JSON).GetProperty(ConstantRandomForest.SCALE_JSON));
-
-            string[] labels = provider.Labels.ToArray();
-
+            string[] labels = model.Labels;
             double[] votes = new double[labels.Length];
 
-            foreach (JsonElement tree in root
+            foreach (JsonElement tree in model.Forest
                      .GetProperty(ConstantRandomForest.FOREST_JSON)
                      .GetProperty(ConstantRandomForest.TREES_JSON)
                      .EnumerateArray())

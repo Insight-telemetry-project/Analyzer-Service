@@ -14,7 +14,7 @@ namespace Analyzer_Service.Services.Mongo
             _telemetryMongo = telemetryMongo;
         }
 
-        public async Task<SignalSeries> PrepareFlightDataAsync(int masterIndex, string xField, string yField)
+        public async Task<SignalSeries> PrepareFlightDataAsync(int masterIndex, string xParameter, string yParameter)
         {
             IAsyncCursor<TelemetrySensorFields> cursor = await _telemetryMongo.GetCursorFromFieldsAsync(masterIndex);
 
@@ -23,7 +23,7 @@ namespace Analyzer_Service.Services.Mongo
 
             await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
             {
-                if (record.Fields.TryGetValue(yField, out double yValue))
+                if (record.Fields.TryGetValue(yParameter, out double yValue))
                 {
                     xSeries.Add(record.Timestep);
                     ySeries.Add(yValue);

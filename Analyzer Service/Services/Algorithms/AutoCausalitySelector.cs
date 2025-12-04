@@ -40,9 +40,9 @@ namespace Analyzer_Service.Services.Algorithms
         {
             List<double> differences = new List<double>();
 
-            for (int index = 1; index < series.Count; index++)
+            for (int indexSeries = 1; indexSeries < series.Count; indexSeries++)
             {
-                double delta = series[index] - series[index - 1];
+                double delta = series[indexSeries] - series[indexSeries - 1];
                 differences.Add(delta);
             }
 
@@ -63,10 +63,10 @@ namespace Analyzer_Service.Services.Algorithms
             double varianceFirst = 0.0;
             double varianceSecond = 0.0;
 
-            for (int index = 0; index < sampleCount; index++)
+            for (int indexSeries = 0; indexSeries < sampleCount; indexSeries++)
             {
-                double deviationFirst = firstSeries[index] - meanFirst;
-                double deviationSecond = secondSeries[index] - meanSecond;
+                double deviationFirst = firstSeries[indexSeries] - meanFirst;
+                double deviationSecond = secondSeries[indexSeries] - meanSecond;
 
                 covariance += deviationFirst * deviationSecond;
                 varianceFirst += deviationFirst * deviationFirst;

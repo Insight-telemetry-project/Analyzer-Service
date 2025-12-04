@@ -8,9 +8,9 @@
         public int HistoricalEndIndex { get; set; }
         public string HistoricalLabel { get; set; }
 
-        public int CurrentStartIndex { get; set; }
-        public int CurrentEndIndex { get; set; }
-        public string CurrentLabel { get; set; }
+        public int NewStartIndex { get; set; }
+        public int NewEndIndex { get; set; }
+        public string NewLabel { get; set; }
 
         public double FinalScore { get; set; }
         public double HashSimilarity { get; set; }

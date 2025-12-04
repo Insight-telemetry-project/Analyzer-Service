@@ -12,5 +12,6 @@
         public const double DefaultSigmaValue = 1.0;
         public const double SigmaDivisionFactor = 2.0;
         public const int MinimumSegmentLength = 2;
+
     }
 }
