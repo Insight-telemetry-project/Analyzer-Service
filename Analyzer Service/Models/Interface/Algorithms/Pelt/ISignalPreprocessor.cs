@@ -2,6 +2,6 @@
 {
     public interface ISignalPreprocessor
     {
-        double[] Apply(List<double> values, int hampelWindow, double hampelSigma);
+        public double[] Apply(List<double> values, int hampelWindow, double hampelSigma);
     }
 }

@@ -2,8 +2,8 @@
 {
     public interface IRbfKernelCost
     {
-        int MinimumSize { get; }
-        void Fit(List<double> signal);
-        double ComputeError(int segmentStartIndex, int segmentEndIndex);
+        public int MinimumSize { get; }
+        public void Fit(List<double> signal);
+        public double ComputeError(int segmentStartIndex, int segmentEndIndex);
     }
 }

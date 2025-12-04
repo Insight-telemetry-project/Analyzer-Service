@@ -6,7 +6,7 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 {
     public class RandomForestModelProvider : IRandomForestModelProvider
     {
-        public JsonDocument ModelDocument { get; }
+       public JsonDocument ModelDocument { get; }
 
         public List<string> FeatureNames { get; }
         public List<string> Labels { get; }

@@ -5,6 +5,6 @@ namespace Analyzer_Service.Models.Interface.Algorithms.Clustering
     public interface ISegmentClassificationService
     {
 
-        Task<SegmentAnalysisResult> ClassifyWithAnomaliesAsync(int masterIndex, string fieldName, int startIndex, int endIndex);
+        public Task<SegmentAnalysisResult> ClassifyWithAnomaliesAsync(int masterIndex, string fieldName, int startIndex, int endIndex);
     }
 }

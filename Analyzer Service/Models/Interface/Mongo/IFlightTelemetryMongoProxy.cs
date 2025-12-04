@@ -8,13 +8,13 @@ namespace Analyzer_Service.Models.Interface.Mongo
 {
     public interface IFlightTelemetryMongoProxy
     {
-        Task<IAsyncCursor<TelemetrySensorFields>> GetCursorFromFieldsAsync(int masterIndex);
-        Task<List<TelemetryFlightData>> GetFromFlightDataAsync(int masterIndex);
-        Task<int> GetFlightLengthAsync(int masterIndex);
-        Task StoreConnectionsBulkAsync(List<ConnectionResult> connections);
-        Task StoreAnomalyAsync(int masterIndex, string sensorName, double anomalyTime);
-        Task<IAsyncCursor<HistoricalAnomalyRecord>> GetHistoricalCandidatesAsync(string parameterName, string label, int excludeMasterIndex);
-        Task StoreHistoricalAnomalyAsync(HistoricalAnomalyRecord record);
+        public Task<IAsyncCursor<TelemetrySensorFields>> GetCursorFromFieldsAsync(int masterIndex);
+        public Task<List<TelemetryFlightData>> GetFromFlightDataAsync(int masterIndex);
+        public Task<int> GetFlightLengthAsync(int masterIndex);
+        public Task StoreConnectionsBulkAsync(List<ConnectionResult> connections);
+        public Task StoreAnomalyAsync(int masterIndex, string sensorName, double anomalyTime);
+        public Task<IAsyncCursor<HistoricalAnomalyRecord>> GetHistoricalCandidatesAsync(string parameterName, string label, int excludeMasterIndex);
+        public Task StoreHistoricalAnomalyAsync(HistoricalAnomalyRecord record);
 
     }
 }

@@ -40,10 +40,10 @@ namespace Analyzer_Service.Services.Algorithms
 
             int flightLength = await mongoProxy.GetFlightLengthAsync(masterIndex);
 
-            Dictionary<string, FieldSeries> telemetryByField =
+            Dictionary<string, ParameterSeries> telemetryByField =
                 await BuildTelemetryDictionaryAsync(cursor);
 
-            List<FieldPair> fieldPairs =
+            List<CausalityRelation> fieldPairs =
                 CreateFieldPairs(telemetryByField);
 
             int lagCount = Math.Max(
@@ -67,7 +67,7 @@ namespace Analyzer_Service.Services.Algorithms
             };
         }
 
-        private async Task<Dictionary<string, FieldSeries>> BuildTelemetryDictionaryAsync(IAsyncCursor<TelemetrySensorFields> cursor)
+        private async Task<Dictionary<string, ParameterSeries>> BuildTelemetryDictionaryAsync(IAsyncCursor<TelemetrySensorFields> cursor)
         {
             Dictionary<string, List<double>> temp = new Dictionary<string, List<double>>();
 
@@ -84,27 +84,27 @@ namespace Analyzer_Service.Services.Algorithms
 
             return temp.ToDictionary(
                 kvp => kvp.Key,
-                kvp => new FieldSeries(kvp.Key, kvp.Value)
+                kvp => new ParameterSeries(kvp.Key, kvp.Value)
             );
         }
 
 
-        private List<FieldPair> CreateFieldPairs(
-            Dictionary<string, FieldSeries> telemetryByField)
+        private List<CausalityRelation> CreateFieldPairs(
+            Dictionary<string, ParameterSeries> telemetryByField)
         {
             List<string> fieldNames = telemetryByField.Keys.ToList();
 
             return fieldNames
                 .SelectMany(
                     source => fieldNames.Where(target => target != source),
-                    (source, target) => new FieldPair(source, target))
+                    (source, target) => new CausalityRelation(source, target))
                 .ToList();
         }
 
         private async Task<ConcurrentBag<PairCausalityResult>> ProcessAllPairsAsync(
             int masterIndex,
-            List<FieldPair> pairs,
-            Dictionary<string, FieldSeries> telemetryByField,
+            List<CausalityRelation> pairs,
+            Dictionary<string, ParameterSeries> telemetryByField,
             int lagCount)
         {
             ConcurrentBag<PairCausalityResult> bag =
@@ -115,8 +115,8 @@ namespace Analyzer_Service.Services.Algorithms
                 PairCausalityResult result =
                     await AnalyzePairAsync(
                         masterIndex,
-                        pair.SourceField,
-                        pair.TargetField,
+                        pair.CauseParameter,
+                        pair.EffectParameter,
                         lagCount,
                         ConstantAlgorithm.CCM_EMBEDDING_DIM,
                         ConstantAlgorithm.CCM_DELAY,
@@ -149,7 +149,7 @@ namespace Analyzer_Service.Services.Algorithms
             int lagCount,
             int embeddingDimension,
             int embeddingDelay,
-            Dictionary<string, FieldSeries> telemetryByField)
+            Dictionary<string, ParameterSeries> telemetryByField)
         {
             List<double> sourceSeries =
                 telemetryByField.ContainsKey(sourceFieldName)

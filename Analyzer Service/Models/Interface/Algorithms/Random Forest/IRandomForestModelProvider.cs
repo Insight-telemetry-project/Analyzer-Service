@@ -4,14 +4,14 @@ namespace Analyzer_Service.Models.Interface.Algorithms.Random_Forest
 {
     public interface IRandomForestModelProvider
     {
-        JsonDocument ModelDocument { get; }
+        public JsonDocument ModelDocument { get; }
 
-        List<string> FeatureNames { get; }
-        List<string> Labels { get; }
+        public List<string> FeatureNames { get; }
+        public List<string> Labels { get; }
 
-        double[] ScalerMean { get; }
-        double[] ScalerScale { get; }
+        public double[] ScalerMean { get; }
+        public double[] ScalerScale { get; }
 
-        Dictionary<string, double> BuildFeatureDictionary(double[] featureVector);
+        public Dictionary<string, double> BuildFeatureDictionary(double[] featureVector);
     }
 }

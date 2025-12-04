@@ -4,6 +4,6 @@ namespace Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly
 {
     public interface IHistoricalAnomalySimilarityService
     {
-        Task<List<HistoricalSimilarityResult>> FindSimilarAnomaliesAsync(int masterIndex,string parameterName);
+        public Task<List<HistoricalSimilarityResult>> FindSimilarAnomaliesAsync(int masterIndex,string parameterName);
     }
 }

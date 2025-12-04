@@ -4,7 +4,7 @@ namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
 {
     public interface IAnomalyDetectionUtility
     {
-        List<int> DetectAnomalies(
+        public List<int> DetectAnomalies(
             List<double> timeSeries,
             List<double> processedSignal,
             List<SegmentBoundary> segmentList,
