@@ -1,5 +1,7 @@
-﻿using Analyzer_Service.Models.Interface.Mongo;
+﻿using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Schema;
+using MongoDB.Driver;
 
 namespace Analyzer_Service.Services.Mongo
 {
@@ -12,25 +14,44 @@ namespace Analyzer_Service.Services.Mongo
             _telemetryMongo = telemetryMongo;
         }
 
-        public async Task<(List<double> X, List<double> Y)> PrepareFlightDataAsync(
-            int masterIndex, string xField, string yField)
+        public async Task<SignalSeries> PrepareFlightDataAsync(int masterIndex, string xParameter, string yParameter)
         {
-            List<TelemetrySensorFields> records = await _telemetryMongo.GetFromFieldsAsync(masterIndex);
-            List<TelemetrySensorFields> ordered = records.OrderBy(record => record.Timestep).ToList();
+            IAsyncCursor<TelemetrySensorFields> cursor = await _telemetryMongo.GetCursorFromFieldsAsync(masterIndex);
 
             List<double> xSeries = new List<double>();
             List<double> ySeries = new List<double>();
 
-            foreach (TelemetrySensorFields record in ordered)
+            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
             {
-                if (record.Fields.ContainsKey(xField) && record.Fields.ContainsKey(yField))
+                if (record.Fields.TryGetValue(yParameter, out double yValue))
                 {
-                    xSeries.Add(record.Fields[xField]);
-                    ySeries.Add(record.Fields[yField]);
+                    xSeries.Add(record.Timestep);
+                    ySeries.Add(yValue);
                 }
             }
 
-            return (xSeries, ySeries);
+            return new SignalSeries(xSeries, ySeries);
         }
+
+        public async Task<List<double>> PrepareYAsync(int masterIndex, string fieldName)
+        {
+            IAsyncCursor<TelemetrySensorFields> cursor =
+                await _telemetryMongo.GetCursorFromFieldsAsync(masterIndex);
+
+            List<double> ySeries = new List<double>();
+
+            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
+            {
+                if (record.Fields.TryGetValue(fieldName, out double val))
+                {
+                    ySeries.Add(val);
+                }
+            }
+
+            return ySeries;
+        }
+
+
+
     }
 }

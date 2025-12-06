@@ -2,6 +2,6 @@
 {
     public interface ICcmCausalityAnalyzer
     {
-        double ComputeCausality(List<double> xSeries, List<double> ySeries, int embeddingDim, int delay);
+        public double ComputeCausality(List<double> xSeries, List<double> ySeries, int embeddingDim, int delay);
     }
 }

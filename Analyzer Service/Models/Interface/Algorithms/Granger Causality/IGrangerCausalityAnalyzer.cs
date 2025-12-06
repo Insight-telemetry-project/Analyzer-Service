@@ -2,6 +2,6 @@
 {
     public interface IGrangerCausalityAnalyzer
     {
-        double ComputeCausality(List<double> xSeries, List<double> ySeries, int lagCount);
+        public double ComputeCausality(List<double> xSeries, List<double> ySeries, int lagCount);
     }
 }

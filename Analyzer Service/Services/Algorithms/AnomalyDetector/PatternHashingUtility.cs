@@ -1,0 +1,195 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Interface.Algorithms;
+using Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector;
+
+namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
+{
+    public class PatternHashingUtility : IPatternHashingUtility
+    {
+        private readonly ISignalProcessingUtility signalProcessingUtility;
+
+        public PatternHashingUtility(ISignalProcessingUtility signalProcessingUtility)
+        {
+            this.signalProcessingUtility = signalProcessingUtility;
+        }
+
+        public string ComputeHash(
+            List<double> timeSeries,
+            List<double> processedSignal,
+            SegmentBoundary segmentBoundary)
+        {
+            int segmentLength = segmentBoundary.EndIndex - segmentBoundary.StartIndex;
+
+            if (segmentLength <= ConstantPelt.MinimumSegmentLength)
+            {
+                return BuildShortSegmentHash(processedSignal, segmentBoundary);
+            }
+
+            double segmentStartTime = timeSeries[segmentBoundary.StartIndex];
+            double segmentEndTime = timeSeries[segmentBoundary.EndIndex - 1];
+            double segmentDuration = AdjustDuration(segmentEndTime - segmentStartTime);
+
+            double[] normalizedTimeArray = BuildNormalizedTimeArray(
+                timeSeries,
+                segmentBoundary,
+                segmentStartTime,
+                segmentDuration);
+
+            double[] segmentValueArray =
+                BuildSegmentValueArray(processedSignal, segmentBoundary);
+
+            double[] resamplingGrid = CreateResamplingGrid(ConstantAnomalyDetection.SHAPE_LENGTH);
+
+            double[] resampledValues =
+                ResampleSegmentToFixedLength(normalizedTimeArray, segmentValueArray, resamplingGrid);
+
+            return BuildHashFromResampledValues(resampledValues);
+        }
+
+        private static string BuildShortSegmentHash(
+            List<double> processedSignal,
+            SegmentBoundary segmentBoundary)
+        {
+            double repeatedValue = processedSignal[segmentBoundary.StartIndex];
+
+            double[] repeatedValueArray =
+                Enumerable.Repeat(repeatedValue, ConstantAnomalyDetection.SHAPE_LENGTH).ToArray();
+
+            return string.Join(ConstantAnomalyDetection.HASH_SPLIT, repeatedValueArray);
+        }
+
+        private static double AdjustDuration(double rawDuration)
+        {
+            if (rawDuration <= ConstantAnomalyDetection.DURATION_HASH_THRESHOLD)
+            {
+                return ConstantAnomalyDetection.DURATION_HASH_MIN;
+            }
+
+            return rawDuration;
+        }
+
+        private static double[] BuildNormalizedTimeArray(
+            List<double> timeSeries,
+            SegmentBoundary segmentBoundary,
+            double segmentStartTime,
+            double segmentDuration)
+        {
+            int segmentLength = segmentBoundary.EndIndex - segmentBoundary.StartIndex;
+            double[] normalizedTimeArray = new double[segmentLength];
+
+            for (int segmentOffset = 0; segmentOffset < segmentLength; segmentOffset++)
+            {
+                int sourceIndex = segmentBoundary.StartIndex + segmentOffset;
+
+                double timeValue = timeSeries[sourceIndex];
+                double normalizedTime = (timeValue - segmentStartTime) / segmentDuration;
+
+                normalizedTimeArray[segmentOffset] = normalizedTime;
+            }
+
+            return normalizedTimeArray;
+        }
+
+        private static double[] BuildSegmentValueArray(
+            List<double> processedSignal,
+            SegmentBoundary segmentBoundary)
+        {
+            int segmentLength = segmentBoundary.EndIndex - segmentBoundary.StartIndex;
+            double[] segmentValueArray = new double[segmentLength];
+
+            for (int segmentOffset = 0; segmentOffset < segmentLength; segmentOffset++)
+            {
+                int sourceIndex = segmentBoundary.StartIndex + segmentOffset;
+                segmentValueArray[segmentOffset] = processedSignal[sourceIndex];
+            }
+
+            return segmentValueArray;
+        }
+
+        private static double[] CreateResamplingGrid(int targetLength)
+        {
+            double[] resamplingGrid = new double[targetLength];
+
+            for (int gridIndex = 0; gridIndex < targetLength; gridIndex++)
+            {
+                resamplingGrid[gridIndex] = (double)gridIndex / (targetLength - 1);
+            }
+
+            return resamplingGrid;
+        }
+
+        private string BuildHashFromResampledValues(double[] resampledValues)
+        {
+            List<double> zScoreValues = signalProcessingUtility.ApplyZScore(resampledValues);
+
+            double[] roundedZScores =
+                zScoreValues
+                    .Select(value => Math.Round(value, ConstantAnomalyDetection.ROUND_DECIMALS))
+                    .ToArray();
+
+            return string.Join(ConstantAnomalyDetection.HASH_SPLIT, roundedZScores);
+        }
+
+        private static double[] ResampleSegmentToFixedLength(
+            double[] normalizedTimeArray,
+            double[] segmentValueArray,
+            double[] resamplingGrid)
+        {
+            double[] resampledOutputArray = new double[resamplingGrid.Length];
+
+            for (int gridIndex = 0; gridIndex < resamplingGrid.Length; gridIndex++)
+            {
+                double targetNormalizedTime = resamplingGrid[gridIndex];
+
+                double interpolatedValue =
+                    InterpolateAtTargetTime(
+                        normalizedTimeArray,
+                        segmentValueArray,
+                        targetNormalizedTime);
+
+                resampledOutputArray[gridIndex] = interpolatedValue;
+            }
+
+            return resampledOutputArray;
+        }
+
+        private static double InterpolateAtTargetTime(
+            double[] normalizedTimeArray,
+            double[] segmentValueArray,
+            double targetNormalizedTime)
+        {
+            int lastIndex = normalizedTimeArray.Length - 1;
+
+            if (targetNormalizedTime <= normalizedTimeArray[0])
+                return segmentValueArray[0];
+
+            if (targetNormalizedTime >= normalizedTimeArray[lastIndex])
+                return segmentValueArray[lastIndex];
+
+            int lowerIndex = FindLowerTimeIndex(normalizedTimeArray, targetNormalizedTime);
+            int upperIndex = lowerIndex + 1;
+
+            double lowerTime = normalizedTimeArray[lowerIndex];
+            double upperTime = normalizedTimeArray[upperIndex];
+
+            double lowerValue = segmentValueArray[lowerIndex];
+            double upperValue = segmentValueArray[upperIndex];
+
+            double interpolationWeight =
+                (targetNormalizedTime - lowerTime) / (upperTime - lowerTime);
+
+            return lowerValue + interpolationWeight * (upperValue - lowerValue);
+        }
+
+        private static int FindLowerTimeIndex(double[] normalizedTimeArray, double targetNormalizedTime)
+        {
+            return Array.FindLastIndex(
+                normalizedTimeArray,
+                timeValue => timeValue <= targetNormalizedTime);
+        }
+    }
+}

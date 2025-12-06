@@ -1,10 +1,17 @@
-﻿using Analyzer_Service.Models.Interface.Algorithms;
+﻿using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Ccm;
+using Analyzer_Service.Models.Interface.Algorithms.Clustering;
+using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Mongo;
+using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
+using Analyzer_Service.Services;
 using Analyzer_Service.Services.Mongo;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using MongoDB.Driver;
 
 namespace Analyzer_Service.Controllers
 {
@@ -12,51 +19,53 @@ namespace Analyzer_Service.Controllers
     [Route("[controller]")]
     public class TelemetryAnalyzerController : ControllerBase
     {
-        private readonly IFlightTelemetryMongoProxy _flightTelemetryMongoProxy;
-        private readonly IGrangerCausalityAnalyzer _grangerAnalyzer;
-        private readonly IPrepareFlightData _flightDataPreparer;
         private readonly IFlightCausality _flightCausality;
-        private readonly ICcmCausalityAnalyzer _ccmAnalyzer;
+        private readonly ISegmentClassificationService _segmentClassifier;
+        private readonly IHistoricalAnomalySimilarityService _historicalSimilarityService;
 
 
-        public TelemetryAnalyzerController(IFlightTelemetryMongoProxy flightTelemetryMongoProxy, IGrangerCausalityAnalyzer grangerCausalityAnalyzer,
-            IPrepareFlightData flightDataPreparer, IFlightCausality flightCausalityService, ICcmCausalityAnalyzer ccmAnalyzer)
+        public TelemetryAnalyzerController(
+            IFlightCausality flightCausalityService,
+            ISegmentClassificationService segmentClassifier,
+            IHistoricalAnomalySimilarityService historicalSimilarityService
+
+)
         {
-            _flightTelemetryMongoProxy = flightTelemetryMongoProxy;
-            _grangerAnalyzer = grangerCausalityAnalyzer;
-            _flightDataPreparer = flightDataPreparer;
             _flightCausality = flightCausalityService;
-            _ccmAnalyzer = ccmAnalyzer;
+            _segmentClassifier = segmentClassifier;
+            _historicalSimilarityService = historicalSimilarityService;
+
         }
 
-        [HttpGet("fields/{masterIndex}")]
-        public async Task<IActionResult> GetFieldsByMasterIndex(int masterIndex)
-        {
-            List<TelemetrySensorFields> result = await _flightTelemetryMongoProxy.GetFromFieldsAsync(masterIndex);
-            if (result.Count == 0)
-            {
-                return NotFound($"No TelemetryFields found for Master Index {masterIndex}");
-            }
-            return Ok(result);
-        }
 
-        [HttpGet("flight/{masterIndex}")]
-        public async Task<IActionResult> GetFlightByMasterIndex(int masterIndex)
+
+        [HttpGet("causality-analysis/{flightId}")]
+        public async Task<IActionResult> AnalyzeFlightCausalityById(int flightId)
         {
-            List<TelemetryFlightData> result = await _flightTelemetryMongoProxy.GetFromFlightDataAsync(masterIndex);
-            if (result.Count == 0)
-            {
-                return NotFound($"No TelemetryFlightData found for Master Index {masterIndex}");
-            }
+            FlightCausalityAnalysisResult result = await _flightCausality.AnalyzeFlightAsync(flightId);
             return Ok(result);
         }
 
 
-        [HttpGet("analyze-flight/{masterIndex}")]
-        public async Task<IActionResult> AnalyzeFlight(int masterIndex)
+        [HttpGet("segments-with-anomalies/{flightId}/{fieldName}")]
+        public async Task<IActionResult> AnalyzeFlightSegments(int flightId,string fieldName,int? startIndex = null,int? endIndex = null)
         {
-            object result = await _flightCausality.AnalyzeFlightAsync(masterIndex);
+            int start = startIndex ?? 0;
+            int end = endIndex ?? 0;
+
+            var result = await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId,fieldName,start,end);
+
             return Ok(result);
+        }
+
+
+
+        [HttpGet("similar-anomalies/{flightId}/{fieldName}")]
+        public async Task<IActionResult> FindSimilarAnomalies(int flightId, string fieldName)
+        {
+            var results =await _historicalSimilarityService.FindSimilarAnomaliesAsync(flightId, fieldName);
+
+            return Ok(results);
         }
     }
 }
