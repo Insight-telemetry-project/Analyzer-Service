@@ -9,6 +9,6 @@ namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
             List<double> processedSignal,
             List<SegmentBoundary> segmentList,
             List<string> labelList,
-            List<Dictionary<string, double>> featureList);
+            List<SegmentFeatures> featureList);
     }
 }

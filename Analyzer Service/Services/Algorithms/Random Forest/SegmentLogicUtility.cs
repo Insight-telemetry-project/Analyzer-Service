@@ -64,7 +64,7 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
                         ? meanValuesPerSegment[segmentIndex + 1]
                         : 0.0;
 
-                double[] featureVector =
+                SegmentFeatures features =
                     featureExtractionUtility.ExtractFeatures(
                         timeSeriesValues,
                         signalValues,
@@ -73,7 +73,7 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
                         nextMeanValue);
 
                 string predictedLabel =
-                    randomForestOperations.PredictLabel(model, featureVector);
+                    randomForestOperations.PredictLabel(model, features);
 
                 SegmentClassificationResult result =
                     new SegmentClassificationResult(segmentBoundary, predictedLabel);
@@ -120,42 +120,40 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
             return mergedResults;
         }
 
-        public List<Dictionary<string, double>> BuildFeatureList(
-            List<double> timeSeriesValues,
-            List<double> signalValues,
-            List<SegmentBoundary> segmentBoundaries,
-            List<double> meanValuesPerSegment)
+        public List<SegmentFeatures> BuildFeatureList(
+    List<double> timeSeriesValues,
+    List<double> signalValues,
+    List<SegmentBoundary> segmentBoundaries,
+    List<double> meanValuesPerSegment)
         {
-            List<Dictionary<string, double>> featureList =
-                new List<Dictionary<string, double>>(segmentBoundaries.Count);
-
-            RandomForestModel model = modelProvider.GetModel();
+            List<SegmentFeatures> featureList =
+                new List<SegmentFeatures>(segmentBoundaries.Count);
 
             for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
             {
-                double previousMeanValue =
-                    segmentIndex > 0 ? meanValuesPerSegment[segmentIndex - 1] : 0.0;
+                double previousMean =
+                    segmentIndex > 0
+                        ? meanValuesPerSegment[segmentIndex - 1]
+                        : 0.0;
 
-                double nextMeanValue =
+                double nextMean =
                     segmentIndex < meanValuesPerSegment.Count - 1
                         ? meanValuesPerSegment[segmentIndex + 1]
                         : 0.0;
 
-                double[] featureVector =
+                SegmentFeatures features =
                     featureExtractionUtility.ExtractFeatures(
                         timeSeriesValues,
                         signalValues,
                         segmentBoundaries[segmentIndex],
-                        previousMeanValue,
-                        nextMeanValue);
+                        previousMean,
+                        nextMean);
 
-                Dictionary<string, double> featureDictionary =
-                    modelProvider.BuildFeatureDictionary(featureVector);
-
-                featureList.Add(featureDictionary);
+                featureList.Add(features);
             }
 
             return featureList;
         }
+
     }
 }

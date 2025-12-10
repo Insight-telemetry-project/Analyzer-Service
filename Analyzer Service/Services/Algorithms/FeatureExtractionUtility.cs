@@ -36,7 +36,7 @@ namespace Analyzer_Service.Services.Algorithms
         }
 
 
-        public double[] ExtractFeatures(List<double> timeSeries,List<double> processedSignal,SegmentBoundary segment,double previousMean,double nextMean)
+        public SegmentFeatures ExtractFeatures(List<double> timeSeries,List<double> processedSignal,SegmentBoundary segment,double previousMean,double nextMean)
         {
             int startIndex = segment.StartIndex;
             int endIndex = segment.EndIndex;
@@ -87,8 +87,22 @@ namespace Analyzer_Service.Services.Algorithms
             double validatedPrev = double.IsNaN(previousMean) ? 0.0 : previousMean;
             double validatedNext = double.IsNaN(nextMean) ? 0.0 : nextMean;
 
-            return new double[]
-            {duration,mean,std,minValue,maxValue,range,energy,slope,peakCount,troughCount,validatedPrev,validatedNext};
+            return new SegmentFeatures
+            {
+                DurationSeconds = duration,
+                MeanZ = mean,
+                StdZ = std,
+                MinZ = minValue,
+                MaxZ = maxValue,
+                RangeZ = range,
+                EnergyZ = energy,
+                Slope = slope,
+                PeakCount = peakCount,
+                TroughCount = troughCount,
+                MeanPrev = validatedPrev,
+                MeanNext = validatedNext
+            };
+
         }
 
 

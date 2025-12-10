@@ -7,13 +7,15 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 {
     public class RandomForestModelProvider : IRandomForestModelProvider
     {
-       public JsonDocument ModelDocument { get; }
+        public JsonDocument ModelDocument { get; }
 
-        List<string> FeatureNames { get; }
-        List<string> Labels { get; }
+        public List<string> FeatureNames { get; }
 
-        double[] ScalerMean { get; }
-        double[] ScalerScale { get; }
+        public List<string> Labels { get; }
+
+        public double[] ScalerMean { get; }
+
+        public double[] ScalerScale { get; }
 
         public RandomForestModelProvider()
         {
@@ -21,60 +23,49 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 
             ModelDocument = JsonDocument.Parse(jsonContent);
 
-            JsonElement root = ModelDocument.RootElement;
+            JsonElement rootElement = ModelDocument.RootElement;
 
             FeatureNames =
-                root
-                .GetProperty(ConstantRandomForest.FEATURE_NAMES_JSON)
-                .EnumerateArray()
-                .Select(field => field.GetString())
-                .ToList();
+                rootElement
+                    .GetProperty(ConstantRandomForest.FEATURE_NAMES_JSON)
+                    .EnumerateArray()
+                    .Select(field => field.GetString())
+                    .ToList();
 
             Labels =
-                root
-                .GetProperty(ConstantRandomForest.LABELS_JSON)
-                .EnumerateArray()
-                .Select(field => field.GetString())
-                .ToList();
+                rootElement
+                    .GetProperty(ConstantRandomForest.LABELS_JSON)
+                    .EnumerateArray()
+                    .Select(field => field.GetString())
+                    .ToList();
 
-            JsonElement scaler = root.GetProperty(ConstantRandomForest.SCALER_JSON);
+            JsonElement scalerElement = rootElement.GetProperty(ConstantRandomForest.SCALER_JSON);
 
             ScalerMean =
-                scaler
-                .GetProperty(ConstantRandomForest.MEAN_JSON)
-                .EnumerateArray()
-                .Select(field => field.GetDouble())
-                .ToArray();
+                scalerElement
+                    .GetProperty(ConstantRandomForest.MEAN_JSON)
+                    .EnumerateArray()
+                    .Select(field => field.GetDouble())
+                    .ToArray();
 
             ScalerScale =
-                scaler
-                .GetProperty(ConstantRandomForest.SCALE_JSON)
-                .EnumerateArray()
-                .Select(field => field.GetDouble())
-                .ToArray();
+                scalerElement
+                    .GetProperty(ConstantRandomForest.SCALE_JSON)
+                    .EnumerateArray()
+                    .Select(field => field.GetDouble())
+                    .ToArray();
         }
 
         public RandomForestModel GetModel()
         {
-            return new RandomForestModel(
+            RandomForestModel model = new RandomForestModel(
                 ModelDocument.RootElement,
                 Labels.ToArray(),
                 FeatureNames.ToArray(),
                 ScalerMean,
-                ScalerScale
-            );
-        }
+                ScalerScale);
 
-        public Dictionary<string, double> BuildFeatureDictionary(double[] featureVector)
-        {
-            Dictionary<string, double> dictionary = new Dictionary<string, double>();
-
-            for (int index = 0; index < FeatureNames.Count; index++)
-            {
-                dictionary[FeatureNames[index]] = featureVector[index];
-            }
-
-            return dictionary;
+            return model;
         }
     }
 }

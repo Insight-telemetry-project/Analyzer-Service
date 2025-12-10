@@ -85,12 +85,14 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             return segmentStartIndex + localIndexOfGlobalAbsMax;
         }
 
-        public double ComputeAnomalyStrengthScore(
-            Dictionary<string, double> featureDictionary)
+        public double ComputeAnomalyStrengthScore(SegmentFeatures segmentFeatures)
         {
-            double rangeZScore = Math.Abs(featureDictionary[ConstantRandomForest.RANGE_Z_JSON]);
-            double energyZScore = featureDictionary[ConstantRandomForest.ENERGY_Z_JSON];
-            double weightedStrengthScore = rangeZScore * ConstantAnomalyDetection.RANGEZ_SCORE_THRESHOLD + energyZScore * ConstantAnomalyDetection.ENERGYZ_SCORE_THRESHOLD;
+            double rangeZScore = Math.Abs(segmentFeatures.RangeZ);
+            double energyZScore = segmentFeatures.EnergyZ;
+
+            double weightedStrengthScore =
+                rangeZScore * ConstantAnomalyDetection.RANGEZ_SCORE_THRESHOLD +
+                energyZScore * ConstantAnomalyDetection.ENERGYZ_SCORE_THRESHOLD;
 
             return weightedStrengthScore;
         }

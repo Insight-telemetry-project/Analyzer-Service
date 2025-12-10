@@ -10,7 +10,7 @@ namespace Analyzer_Service.Models.Interface.Algorithms.Random_Forest
             List<double> meanValues);
         public List<SegmentClassificationResult> MergeSegments(List<SegmentClassificationResult> segments);
 
-        public List<Dictionary<string, double>> BuildFeatureList(List<double> timeSeries,List<double> signal,
+        public List<SegmentFeatures> BuildFeatureList(List<double> timeSeries,List<double> signal,
             List<SegmentBoundary> segments,List<double> meanValues);
     }
 }

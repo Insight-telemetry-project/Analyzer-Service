@@ -8,6 +8,5 @@ namespace Analyzer_Service.Models.Interface.Algorithms.Random_Forest
         public RandomForestModel GetModel();
 
 
-        public Dictionary<string, double> BuildFeatureDictionary(double[] featureVector);
     }
 }

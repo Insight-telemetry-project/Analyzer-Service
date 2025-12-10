@@ -1,4 +1,5 @@
 ﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
 
 namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
@@ -22,22 +23,45 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
             return similarity;
         }
 
-        public double CompareFeatureVectors(Dictionary<string, double> featuresA, Dictionary<string, double> featuresB)
+        public double CompareFeatureVectors(SegmentFeatures featuresA, SegmentFeatures featuresB)
         {
-            List<double> vectorA = new List<double>();
-            List<double> vectorB = new List<double>();
-
-            foreach (KeyValuePair<string, double> entry in featuresA)
+            double[] vectorA = new double[]
             {
-                vectorA.Add(entry.Value);
-                vectorB.Add(featuresB[entry.Key]);
-            }
+                featuresA.DurationSeconds,
+                featuresA.MeanZ,
+                featuresA.StdZ,
+                featuresA.MinZ,
+                featuresA.MaxZ,
+                featuresA.RangeZ,
+                featuresA.EnergyZ,
+                featuresA.Slope,
+                featuresA.PeakCount,
+                featuresA.TroughCount,
+                featuresA.MeanPrev,
+                featuresA.MeanNext
+            };
+
+            double[] vectorB = new double[]
+            {
+                featuresB.DurationSeconds,
+                featuresB.MeanZ,
+                featuresB.StdZ,
+                featuresB.MinZ,
+                featuresB.MaxZ,
+                featuresB.RangeZ,
+                featuresB.EnergyZ,
+                featuresB.Slope,
+                featuresB.PeakCount,
+                featuresB.TroughCount,
+                featuresB.MeanPrev,
+                featuresB.MeanNext
+            };
 
             double dotProduct = 0.0;
             double normA = 0.0;
             double normB = 0.0;
 
-            for (int index = 0; index < vectorA.Count; index++)
+            for (int index = 0; index < vectorA.Length; index++)
             {
                 dotProduct += vectorA[index] * vectorB[index];
                 normA += vectorA[index] * vectorA[index];

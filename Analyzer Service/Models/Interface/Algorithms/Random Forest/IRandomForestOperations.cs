@@ -8,6 +8,6 @@ namespace Analyzer_Service.Models.Interface.Algorithms.Random_Forest
         public double[] ScaleFeatures(double[] featureVector, double[] meanArray, double[] scaleArray);
 
         public int PredictTree(JsonElement tree, double[] scaledFeatures);
-        public string PredictLabel(RandomForestModel model, double[] rawFeatures);
+        public string PredictLabel(RandomForestModel model, SegmentFeatures features);
     }
 }

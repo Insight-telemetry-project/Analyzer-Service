@@ -1,4 +1,5 @@
-﻿using MongoDB.Bson;
+﻿using Analyzer_Service.Models.Dto;
+using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 
 namespace Analyzer_Service.Models.Schema
@@ -29,7 +30,8 @@ namespace Analyzer_Service.Models.Schema
         public string PatternHash { get; set; }
 
         [BsonElement("FeatureValues")]
-        public Dictionary<string, double> FeatureValues { get; set; } = new();
+        public SegmentFeatures FeatureValues { get; set; } = new SegmentFeatures();
+
 
         [BsonElement("CreatedAt")]
         public DateTime CreatedAt { get; set; }

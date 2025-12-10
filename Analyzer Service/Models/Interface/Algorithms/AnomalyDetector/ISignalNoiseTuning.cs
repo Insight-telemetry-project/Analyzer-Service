@@ -12,6 +12,6 @@ namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
             string segmentLabel);
 
         public double ComputeAnomalyStrengthScore(
-            Dictionary<string, double> featureDictionary);
+            SegmentFeatures featureDictionary);
     }
 }
