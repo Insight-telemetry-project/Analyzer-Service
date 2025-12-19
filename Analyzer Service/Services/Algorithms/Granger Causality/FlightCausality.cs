@@ -83,8 +83,8 @@ namespace Analyzer_Service.Services.Algorithms
             }
 
             return temp.ToDictionary(
-                kvp => kvp.Key,
-                kvp => new ParameterSeries(kvp.Key, kvp.Value)
+                keyValuePair => keyValuePair.Key,
+                keyValuePair => new ParameterSeries(keyValuePair.Key, keyValuePair.Value)
             );
         }
 

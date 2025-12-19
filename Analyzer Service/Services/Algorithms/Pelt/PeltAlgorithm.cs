@@ -50,7 +50,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             }
 
             int bestEndpoint =
-                partitionsByEndpoint.Keys.Where(k => k <= sampleCount).Max();
+                partitionsByEndpoint.Keys.Where(key => key <= sampleCount).Max();
 
             Dictionary<SegmentBoundary, double> finalPartition =
                 partitionsByEndpoint[bestEndpoint];
@@ -64,12 +64,12 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
 
         private List<int> ProcessBreakpoint(
-    int breakpoint,
-    List<int> admissibleEndpoints,
-    Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint,
-    int effectiveMinimumSegmentLength,
-    int jumpSize,
-    double penaltyBeta)
+            int breakpoint,
+            List<int> admissibleEndpoints,
+            Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint,
+            int effectiveMinimumSegmentLength,
+            int jumpSize,
+            double penaltyBeta)
         {
             int newAdmissiblePoint =
                 (int)Math.Floor((breakpoint - effectiveMinimumSegmentLength) / (double)jumpSize);
