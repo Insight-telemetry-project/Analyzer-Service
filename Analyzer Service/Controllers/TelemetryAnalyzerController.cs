@@ -53,7 +53,7 @@ namespace Analyzer_Service.Controllers
             int start = startIndex ?? 0;
             int end = endIndex ?? 0;
 
-            var result = await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId,fieldName,start,end);
+            SegmentAnalysisResult result = await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId,fieldName,start,end);
 
             return Ok(result);
         }
@@ -63,7 +63,7 @@ namespace Analyzer_Service.Controllers
         [HttpGet("similar-anomalies/{flightId}/{fieldName}")]
         public async Task<IActionResult> FindSimilarAnomalies(int flightId, string fieldName)
         {
-            var results =await _historicalSimilarityService.FindSimilarAnomaliesAsync(flightId, fieldName);
+            List<HistoricalSimilarityResult> results =await _historicalSimilarityService.FindSimilarAnomaliesAsync(flightId, fieldName);
 
             return Ok(results);
         }

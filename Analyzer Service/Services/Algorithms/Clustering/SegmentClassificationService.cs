@@ -22,6 +22,8 @@ namespace Analyzer_Service.Services
         private readonly IPatternHashingUtility patternHashingUtility;
         private readonly ISignalNoiseTuning signalNoiseTuning;
 
+        public Boolean IsTest = true;
+
         public SegmentClassificationService(
             IPrepareFlightData flightDataPreparer,
             IChangePointDetectionService changePointDetectionService,
@@ -79,9 +81,25 @@ namespace Analyzer_Service.Services
 
         private List<double> PreprocessSignal(List<double> signalValues)
         {
-            double[] signalArray = signalValues.ToArray();
-            List<double> normalizedSignalValues = signalProcessingUtility.ApplyZScore(signalArray);
-            return normalizedSignalValues;
+            if (!IsTest)
+            {
+                double[] filteredSignal =
+                    signalProcessingUtility.ApplyHampel(
+                        signalValues.ToArray(),
+                        ConstantAlgorithm.HAMPEL_WINDOW,
+                        ConstantAlgorithm.HAMPEL_SIGMA);
+
+                List<double> normalizedSignal =
+                    signalProcessingUtility.ApplyZScore(filteredSignal);
+
+                return normalizedSignal;
+            }
+            else
+            {
+                double[] signalArray = signalValues.ToArray();
+                List<double> normalizedSignalValues = signalProcessingUtility.ApplyZScore(signalArray);
+                return normalizedSignalValues;
+            }
         }
 
         public async Task<SegmentAnalysisResult> ClassifyWithAnomaliesAsync(
@@ -90,7 +108,10 @@ namespace Analyzer_Service.Services
             int startIndex,
             int endIndex)
         {
-            signalNoiseTuning.ApplyConstantPeltConfiguration();
+            if (IsTest)
+            {
+                signalNoiseTuning.ApplyLowNoiseConfiguration();
+            }
 
             (List<double> timeSeriesValues, List<double> signalValues) =
                 await LoadRangeAsync(masterIndex, fieldName, startIndex, endIndex);
@@ -115,7 +136,7 @@ namespace Analyzer_Service.Services
             AttachHashVectors(timeSeriesValues, processedSignalValues, segmentClassificationResults);
 
             List<int> detectedAnomalySegmentIndexes =
-                DetectAndFilterAnomalies(
+                DetectAnomaliesLikeOldBehavior(
                     timeSeriesValues,
                     processedSignalValues,
                     mergedSegmentBoundaries,
@@ -149,7 +170,7 @@ namespace Analyzer_Service.Services
             return result;
         }
 
-        private List<int> DetectAndFilterAnomalies(
+        private List<int> DetectAnomaliesLikeOldBehavior(
             List<double> timeSeriesValues,
             List<double> processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
@@ -162,6 +183,11 @@ namespace Analyzer_Service.Services
                 segmentBoundaries,
                 classificationResults.Select(result => result.Label).ToList(),
                 featureList);
+
+            if (!IsTest)
+            {
+                return detectedSegmentIndexes;
+            }
 
             List<int> filteredSegmentIndexes =
                 detectedSegmentIndexes
