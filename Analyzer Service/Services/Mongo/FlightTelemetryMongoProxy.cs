@@ -62,21 +62,7 @@ namespace Analyzer_Service.Services.Mongo
             return result.Fields[ConstantFligth.FLIGHT_LENGTH];
         }
 
-        public async Task StoreAnomalyAsync(int masterIndex, string sensorName, double anomalyTime)
-        {
-            FilterDefinition<TelemetryFlightData> filter =
-                Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
-
-            UpdateDefinition<TelemetryFlightData> update =
-                Builders<TelemetryFlightData>.Update
-                    .AddToSet($"Anomalies.{sensorName}", anomalyTime);
-
-            await _telemetryFlightData.UpdateOneAsync(
-                filter,
-                update,
-                new UpdateOptions { IsUpsert = true }
-            );
-        }
+        
 
         public async Task StoreConnectionsBulkAsync(List<ConnectionResult> connections)
         {
@@ -108,25 +94,13 @@ namespace Analyzer_Service.Services.Mongo
         }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
         public async Task<IAsyncCursor<HistoricalAnomalyRecord>>GetHistoricalCandidatesAsync
             (string parameterName, string label, int masterIndex)
         {
             FilterDefinition<HistoricalAnomalyRecord> filter =
-    Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.ParameterName, parameterName) &
-    Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.Label, label) &
-    Builders<HistoricalAnomalyRecord>.Filter.Ne(flight => flight.MasterIndex, masterIndex);
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.ParameterName, parameterName) &
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.Label, label) &
+                Builders<HistoricalAnomalyRecord>.Filter.Ne(flight => flight.MasterIndex, masterIndex);
 
             return await _historicalAnomalies
                 .Find(filter)
@@ -148,7 +122,21 @@ namespace Analyzer_Service.Services.Mongo
                 await _historicalAnomalies.InsertOneAsync(record);
             }
         }
+        public async Task StoreAnomalyAsync(int masterIndex, string sensorName, double anomalyTime)
+        {
+            FilterDefinition<TelemetryFlightData> filter =
+                Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
 
+            UpdateDefinition<TelemetryFlightData> update =
+                Builders<TelemetryFlightData>.Update
+                    .AddToSet($"Anomalies.{sensorName}", anomalyTime);
+
+            await _telemetryFlightData.UpdateOneAsync(
+                filter,
+                update,
+                new UpdateOptions { IsUpsert = true }
+            );
+        }
 
 
     }

@@ -38,13 +38,23 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 
             for (int indexAnomalyIndexes = 0; indexAnomalyIndexes < classification.AnomalyIndexes.Count; indexAnomalyIndexes++)
             {
-                int anomalyIndex = classification.AnomalyIndexes[indexAnomalyIndexes];
+                int sampleIndex = classification.AnomalyIndexes[indexAnomalyIndexes];
+
+                int segmentIndex =
+                    MapSampleIndexToSegmentIndex(sampleIndex, classification.SegmentBoundaries);
+
+                if (segmentIndex == -1)
+                {
+                    continue;
+                }
+
                 await ProcessSingleAnomalyAsync(
-                    anomalyIndex,
+                    segmentIndex,
                     masterIndex,
                     parameterName,
                     classification.Segments,
                     finalResults);
+
             }
 
             return finalResults;
@@ -148,5 +158,21 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 
             return values;
         }
+
+        private static int MapSampleIndexToSegmentIndex(int sampleIndex,List<SegmentBoundary> segmentBoundaries)
+        {
+            for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
+            {
+                SegmentBoundary boundary = segmentBoundaries[segmentIndex];
+
+                if (sampleIndex >= boundary.StartIndex && sampleIndex <= boundary.EndIndex)
+                {
+                    return segmentIndex;
+                }
+            }
+
+            return -1;
+        }
+
     }
 }

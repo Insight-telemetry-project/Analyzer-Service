@@ -136,7 +136,7 @@ namespace Analyzer_Service.Services
             AttachHashVectors(timeSeriesValues, processedSignalValues, segmentClassificationResults);
 
             List<int> detectedAnomalySegmentIndexes =
-                DetectAnomaliesLikeOldBehavior(
+                DetectAnomalies(
                     timeSeriesValues,
                     processedSignalValues,
                     mergedSegmentBoundaries,
@@ -170,7 +170,7 @@ namespace Analyzer_Service.Services
             return result;
         }
 
-        private List<int> DetectAnomaliesLikeOldBehavior(
+        private List<int> DetectAnomalies(
             List<double> timeSeriesValues,
             List<double> processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
