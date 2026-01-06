@@ -17,13 +17,14 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
         public List<int> DetectChangePoints( List<double> signalValues, int minimumSegmentLength, int jumpSize, double penaltyBeta)
         {
+            // Discussion: you are allocation memory here multiple times unnecessarily
             costFunction.Fit(signalValues);
 
             int sampleCount = signalValues.Count;
             int effectiveMinimumSegmentLength =
                 Math.Max(minimumSegmentLength, costFunction.MinimumSize);
 
-            Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint =
+            Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint = // Discussion: very unclear what this variable represents, use oop and types to clarify
                 new Dictionary<int, Dictionary<SegmentBoundary, double>>();
 
             Dictionary<SegmentBoundary, double> initialPartition =
@@ -38,7 +39,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             List<int> candidateBreakpoints =
                 GenerateCandidateBreakpoints(sampleCount, effectiveMinimumSegmentLength, jumpSize);
 
-            foreach (int breakpoint in candidateBreakpoints)
+            foreach (int breakpoint in candidateBreakpoints) // Discussion: can use linq to avoid nesting
             {
                 admissibleEndpoints = ProcessBreakpoint(
                     breakpoint,

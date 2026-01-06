@@ -28,16 +28,14 @@ namespace Analyzer_Service.Controllers
             IFlightCausality flightCausalityService,
             ISegmentClassificationService segmentClassifier,
             IHistoricalAnomalySimilarityService historicalSimilarityService
+        )
 
-)
         {
             _flightCausality = flightCausalityService;
             _segmentClassifier = segmentClassifier;
             _historicalSimilarityService = historicalSimilarityService;
 
         }
-
-
 
         [HttpGet("causality-analysis/{flightId}")]
         public async Task<IActionResult> AnalyzeFlightCausalityById(int flightId)
@@ -46,9 +44,8 @@ namespace Analyzer_Service.Controllers
             return Ok(result);
         }
 
-
         [HttpGet("segments-with-anomalies/{flightId}/{fieldName}")]
-        public async Task<IActionResult> AnalyzeFlightSegments(int flightId,string fieldName,int? startIndex = null,int? endIndex = null)
+        public async Task<IActionResult> AnalyzeFlightSegments(int flightId,string fieldName,int? startIndex = null,int? endIndex = null) // Discussion: change to dto, also optional parameters
         {
             int start = startIndex ?? 0;
             int end = endIndex ?? 0;
@@ -57,8 +54,6 @@ namespace Analyzer_Service.Controllers
 
             return Ok(result);
         }
-
-
 
         [HttpGet("similar-anomalies/{flightId}/{fieldName}")]
         public async Task<IActionResult> FindSimilarAnomalies(int flightId, string fieldName)

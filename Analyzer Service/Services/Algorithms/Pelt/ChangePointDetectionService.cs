@@ -9,7 +9,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 {
     public class ChangePointDetectionService : IChangePointDetectionService
     {
-        private readonly IPrepareFlightData flightDataPreparer;
+        private readonly IPrepareFlightData flightDataPreparer; // Discussion: use _ prefix for private fields
         private readonly ISignalPreprocessor signalPreprocessor;
         private readonly IPeltAlgorithm peltAlgorithm;
         private readonly ISignalProcessingUtility signalProcessingUtility;
@@ -28,12 +28,12 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
         public async Task<List<int>> DetectChangePointsAsync(int masterIndex, string targetFieldName)
         {
-            SignalSeries series =await flightDataPreparer.PrepareFlightDataAsync(
+            SignalSeries series =await flightDataPreparer.PrepareFlightDataAsync( // Discussion: each time fetching from the mongo, instead of using the same cursor
                 masterIndex,
                 ConstantFligth.TIMESTEP_COL,
                 targetFieldName);
 
-            List<double> timeSeries = series.Time;
+            List<double> timeSeries = series.Time; // Discussion: you are using simple types like double all along the project without labeling them, encapsulating these in objects would make it more readable
             List<double> signalSeries = series.Values;
 
 
@@ -54,7 +54,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                         minimumSegmentSamples,
                         ConstantPelt.SAMPLING_JUMP,
                         ConstantPelt.PENALTY_BETA)
-                    .ToList();
+                    .ToList(); // Discussion: unnecessary memory allocation here with ToList
 
 
 
@@ -65,11 +65,12 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             return filtered;
         }
 
-        private double ComputeSamplingFrequency(IReadOnlyList<double> timeSeries)
+        private double ComputeSamplingFrequency(IReadOnlyList<double> timeSeries) // Discussion: you are passing a list here, so why are you suddenly using IReadOnlyList?
         {
             int count = timeSeries.Count - 1;
 
-            double[] differences = new double[count];
+            double[] differences = new double[count]; // Discussion: allocating memory unnecessarily here
+            // Discussion: you can use Linq to compute the differences without allocating an array
             for (int index = 0; index < count; index++)
             {
                 differences[index] = timeSeries[index + 1] - timeSeries[index];

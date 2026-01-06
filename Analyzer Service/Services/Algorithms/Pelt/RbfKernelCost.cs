@@ -11,7 +11,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
         public int MinimumSize => ConstantPelt.MinimumSegmentLength;
 
-        public void Fit(List<double> signalValues)
+        public void Fit(List<double> signalValues) // Discussion: this method is way too long
         {
             int signalLength = signalValues.Count;
 
@@ -19,7 +19,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
             double[] squaredDistances = new double[signalLength * (signalLength - 1) / 2];
 
-            Parallel.For(0, signalLength, leftIndex =>
+            Parallel.For(0, signalLength, leftIndex => // Discussion: this would run in the background without you tracking its completion, meaning that if any exception occurs it would be lost and you may depened on these calculations before they are done
             {
                 double leftValue = signalValues[leftIndex];
 
@@ -40,7 +40,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                 ? ConstantPelt.DefaultSigmaValue
                 : medianSquaredDistance / ConstantPelt.SigmaDivisionFactor;
 
-            Parallel.For(0, signalLength, rowIndex =>
+            Parallel.For(0, signalLength, rowIndex => // Discussion: same comment as before about Parallel.For
             {
                 kernelMatrix[rowIndex, rowIndex] = ConstantPelt.DefaultSigmaValue;
 
@@ -60,9 +60,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
             prefixMatrix = new double[signalLength + 1, signalLength + 1];
 
-            for (int row = 1; row <= signalLength; row++)
+            for (int row = 1; row <= signalLength; row++) // Discussion: avoid double nested loops
             {
-                for (int col = 1; col <= signalLength; col++)
+                for (int col = 1; col <= signalLength; col++) // Discussion: use meaningful variable names
                 {
                     prefixMatrix[row, col] =
                         kernelMatrix[row - 1, col - 1] +
@@ -75,7 +75,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
         private int ComputeFlatIndex(int leftIndex, int rightIndex, int length)
         {
-            return (leftIndex * length) - (leftIndex * (leftIndex + 1) / 2) + (rightIndex - leftIndex - 1);
+            return (leftIndex * length) - (leftIndex * (leftIndex + 1) / 2) + (rightIndex - leftIndex - 1); // Discussion: complex calculation, same comments as before about readability
         }
 
         public double ComputeError(int segmentStartIndex, int segmentEndIndex)

@@ -4,7 +4,7 @@ using MongoDB.Bson.Serialization.Attributes;
 namespace Analyzer_Service.Models.Schema
 {
     [BsonIgnoreExtraElements]
-    public class TelemetrySensorFields
+    public class TelemetrySensorFields // Discussion: change name, why 'Sensor'?
     {
 
         [BsonElement("Fields")]

@@ -7,7 +7,7 @@ namespace Analyzer_Service.Services.Mongo
 {
     public class PrepareFlightData: IPrepareFlightData
     {
-        private readonly IFlightTelemetryMongoProxy _telemetryMongo;
+        private readonly IFlightTelemetryMongoProxy _telemetryMongo; // Discussion: rename: generic name _telemetryMongo
 
         public PrepareFlightData(IFlightTelemetryMongoProxy telemetryMongo)
         {
@@ -21,7 +21,8 @@ namespace Analyzer_Service.Services.Mongo
             List<double> xSeries = new List<double>();
             List<double> ySeries = new List<double>();
 
-            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
+            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable()) // Discussion: is it correct, using await foreach here?
+                                                                                       // Dicussion: going through all the frames in the flight here manually, can do it with mongo queries, aggregation pipeline
             {
                 if (record.Fields.TryGetValue(yParameter, out double yValue))
                 {
@@ -38,9 +39,9 @@ namespace Analyzer_Service.Services.Mongo
             IAsyncCursor<TelemetrySensorFields> cursor =
                 await _telemetryMongo.GetCursorFromFieldsAsync(masterIndex);
 
-            List<double> ySeries = new List<double>();
+            List<double> x = new List<double>(); // Discussion: meaningful names?
 
-            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
+            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable()) // Discussion: same as PrepareFlightDataAsync
             {
                 if (record.Fields.TryGetValue(fieldName, out double val))
                 {

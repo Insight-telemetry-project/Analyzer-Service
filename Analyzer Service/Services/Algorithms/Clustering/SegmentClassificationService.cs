@@ -10,9 +10,9 @@ using Analyzer_Service.Models.Schema;
 
 namespace Analyzer_Service.Services
 {
-    public class SegmentClassificationService : ISegmentClassificationService
+    public class SegmentClassificationService : ISegmentClassificationService // Discussion: public method in the top, private methods below by order of usage
     {
-        private readonly IPrepareFlightData flightDataPreparer;
+        private readonly IPrepareFlightData flightDataPreparer; // Discussion: rename private variables with _ in the name
         private readonly IChangePointDetectionService changePointDetectionService;
         private readonly ISignalProcessingUtility signalProcessingUtility;
         private readonly IFeatureExtractionUtility featureExtractionUtility;
@@ -48,7 +48,7 @@ namespace Analyzer_Service.Services
         {
             return await flightDataPreparer.PrepareFlightDataAsync(
                 masterIndex,
-                ConstantFligth.TIMESTEP_COL,
+                ConstantFligth.TIMESTEP_COL, // Discussion: use full names: TIMESTAMP_COLLUMN
                 fieldName);
         }
 
@@ -67,7 +67,7 @@ namespace Analyzer_Service.Services
                     .OrderBy(changePointIndex => changePointIndex)
                     .ToList();
 
-            if (!cleanedChangePointIndexes.Contains(totalSampleCount))
+            if (!cleanedChangePointIndexes.Contains(totalSampleCount)) // Discussion: this is the responsibility of the method that provided the point indexes, not the responsibility of this method
             {
                 cleanedChangePointIndexes.Add(totalSampleCount);
             }
@@ -90,9 +90,9 @@ namespace Analyzer_Service.Services
             int startIndex,
             int endIndex)
         {
-            signalNoiseTuning.ApplyConstantPeltConfiguration();
+            signalNoiseTuning.ApplyConstantPeltConfiguration(); // Discussion: if these are constants, why change them, also why run this every time?
 
-            (List<double> timeSeriesValues, List<double> signalValues) =
+            (List<double> timeSeriesValues, List<double> signalValues) = // Discussion: add type
                 await LoadRangeAsync(masterIndex, fieldName, startIndex, endIndex);
 
             List<SegmentBoundary> detectedSegments =
@@ -220,14 +220,14 @@ namespace Analyzer_Service.Services
             int startIndex,
             int endIndex)
         {
-            SignalSeries fullSeries = await LoadFlightData(masterIndex, fieldName);
+            SignalSeries fullSeries = await LoadFlightData(masterIndex, fieldName); // Discussion: why not saving the points as objects, why saving the timestemps and values seperately?
 
             List<double> fullTimeSeries = fullSeries.Time;
             List<double> fullSignalSeries = fullSeries.Values;
 
-            if (!(startIndex == 0 && endIndex == 0))
+            if ( !(startIndex == 0 && endIndex == 0))  // Discussion: What happens if the start index is 0 and the end index is fine? you will still skip this?
             {
-                if (startIndex < 0)
+                if (startIndex < 0) // Discussion: These are validations, handle them with statuses instead of default values
                 {
                     startIndex = 0;
                 }
@@ -237,7 +237,7 @@ namespace Analyzer_Service.Services
                     endIndex = fullSignalSeries.Count - 1;
                 }
 
-                if (startIndex >= endIndex)
+                if (startIndex >= endIndex) // Discussion: Handle validation with statuses, not returning empty lists
                 {
                     return (new List<double>(), new List<double>());
                 }
@@ -245,13 +245,13 @@ namespace Analyzer_Service.Services
                 fullTimeSeries =
                     fullTimeSeries
                         .Skip(startIndex)
-                        .Take(endIndex - startIndex + 1)
+                        .Take(endIndex - startIndex + 1) // Discussion: You can do this in mongo, no need to load all the data and then slice it
                         .ToList();
 
                 fullSignalSeries =
                     fullSignalSeries
                         .Skip(startIndex)
-                        .Take(endIndex - startIndex + 1)
+                        .Take(endIndex - startIndex + 1) // Discussion: You can do this in mongo, no need to load all the data and then slice it
                         .ToList();
             }
 

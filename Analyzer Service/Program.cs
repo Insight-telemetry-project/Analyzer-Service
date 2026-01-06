@@ -31,8 +31,8 @@ builder.Services.AddSingleton<IGrangerCausalityAnalyzer, GrangerCausalityAnalyze
 builder.Services.AddSingleton<ICcmCausalityAnalyzer, CcmCausalityAnalyzer>();
 
 builder.Services.AddSingleton<IPrepareFlightData, PrepareFlightData>();
-builder.Services.AddSingleton<IFlightTelemetryMongoProxy, FlightTelemetryMongoProxy>();
-builder.Services.AddOpenApi();
+builder.Services.AddSingleton<IFlightTelemetryMongoProxy, FlightTelemetryMongoProxy>(); // Discussion: rename proxy
+builder.Services.AddOpenApi(); // Discussion: whats this?
 builder.Services.AddSingleton<IFlightCausality, FlightCausality>();
 builder.Services.AddSingleton<IAutoCausalitySelector, AutoCausalitySelector>();
 
