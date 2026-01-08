@@ -122,18 +122,13 @@ namespace Analyzer_Service.Services
             }
 
             bool isNoisyFlight = DetermineIsNoisyFlight(signalValues);
-            IsNoisy = !isNoisyFlight;
+            IsNoisy = isNoisyFlight;
 
             if (IsNoisy)
             {
-                // Use your fast/noisy configuration here
                 signalNoiseTuning.ApplyLowNoiseConfiguration();
             }
-            else
-            {
-                // Optional: if you want explicit normal config, call it here.
-                // signalNoiseTuning.ApplyHighNoiseConfiguration();
-            }
+            
 
             List<SegmentBoundary> detectedSegments =
                 await DetectSegments(masterIndex, fieldName, signalValues.Count);
@@ -451,12 +446,6 @@ namespace Analyzer_Service.Services
 
         private bool DetermineIsNoisyFlight(List<double> signalValues)
         {
-            if (signalValues == null || signalValues.Count < 50)
-            {
-                return false;
-            }
-
-            // Build abs diffs (ignore invalid pairs)
             List<double> diffs = new List<double>(signalValues.Count - 1);
 
             for (int index = 1; index < signalValues.Count; index++)
@@ -464,35 +453,19 @@ namespace Analyzer_Service.Services
                 double currentValue = signalValues[index];
                 double previousValue = signalValues[index - 1];
 
-                if (double.IsNaN(currentValue) || double.IsInfinity(currentValue))
-                {
-                    continue;
-                }
-
-                if (double.IsNaN(previousValue) || double.IsInfinity(previousValue))
-                {
-                    continue;
-                }
-
                 diffs.Add(Math.Abs(currentValue - previousValue));
             }
-
-            if (diffs.Count < 40)
-            {
-                return false;
-            }
-
             diffs.Sort();
 
             int count = diffs.Count;
 
             double medianDiff = diffs[count / 2];
-            double safeMedian = Math.Max(medianDiff, 1e-12);
+            double safeMedian = Math.Max(medianDiff, ConstantPelt.ZEROTO_LERANCE);
 
             int p95Index = (int)Math.Floor(0.95 * (count - 1));
             double p95Diff = diffs[p95Index];
 
-            // "Extreme jump" = much larger than typical step
+
             double spikeThreshold = safeMedian * 12.0;
 
             int spikeCount = 0;
@@ -507,19 +480,13 @@ namespace Analyzer_Service.Services
             double spikeFraction = (double)spikeCount / (double)count;
             double tailRatio = p95Diff / safeMedian;
 
-            // Decision: lots of extreme jumps, or very heavy tail
-            if (spikeFraction >= 0.03)
+
+            if (spikeFraction >= 0.03 || tailRatio >= 25.0)
             {
-                return true;
+                return false;
             }
 
-            if (tailRatio >= 25.0)
-            {
-                return true;
-            }
-
-            return false;
+            return true;
         }
-
     }
 }

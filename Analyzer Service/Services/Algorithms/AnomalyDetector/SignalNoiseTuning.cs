@@ -29,32 +29,25 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 
         public void ApplyLowNoiseConfiguration()
         {
-            // Faster configuration for noisy / jumpy flights:
-            // Goal: fewer segments + less downstream work, while still catching strong abrupt jumps.
+           
+            ConstantPelt.SAMPLING_JUMP = 12;
+            ConstantPelt.PENALTY_BETA = 1.0;
+            ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS = 1.5;
 
-            // --- PELT / segmentation knobs (biggest impact on speed) ---
-            ConstantPelt.SAMPLING_JUMP = 12;                 // was 3 -> much fewer evaluated points
-            ConstantPelt.PENALTY_BETA = 1.0;                 // was 0.25 -> stronger penalty => fewer cuts
-            ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS = 1.5; // was 0.6 -> prevents micro-segments
+            ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS = 0.7;
+            ConstantAnomalyDetection.MINIMUM_RANGEZ = 0.9;
+            ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD = 3;
 
-            // --- Anomaly detection knobs (reduce candidate anomalies / comparisons) ---
-            ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS = 0.7;   // was 0.3 -> ignore ultra-short noise
-            ConstantAnomalyDetection.MINIMUM_RANGEZ = 0.9;             // was 0.5 -> ignore small z-range wiggles
-            ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD = 3;    // was 2 -> require more support
+            ConstantAnomalyDetection.FINAL_SCORE = 0.82;
+            ConstantAnomalyDetection.HASH_SIMILARITY = 0.55;
+            ConstantAnomalyDetection.FEATURE_SIMILARITY = 0.18;
+            ConstantAnomalyDetection.DURATION_SIMILARITY = 0.05;
 
-            // Keep scoring reasonably strict, but not too harsh (so big spikes still pass)
-            ConstantAnomalyDetection.FINAL_SCORE = 0.82;               // was 0.75
-            ConstantAnomalyDetection.HASH_SIMILARITY = 0.55;           // was 0.45
-            ConstantAnomalyDetection.FEATURE_SIMILARITY = 0.18;        // was 0.15
-            ConstantAnomalyDetection.DURATION_SIMILARITY = 0.05;       // keep as-is
+            ConstantAnomalyDetection.HASH_THRESHOLD = 0.01;
 
-            // Hash threshold: raise a bit to reduce expensive/low-value matches
-            ConstantAnomalyDetection.HASH_THRESHOLD = 0.01;            // was 0.02 in your tuning; choose stable middle
-
-            // Rare label heuristics: allow a bit more segments before marking rare (noisy flights create many segments)
-            ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX = 7;         // was 8
-            ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION = 0.12;  // was 0.15
-            ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 6;     // was 3 -> prevents dense anomaly spam
+            ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX = 7;
+            ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION = 0.12;
+            ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 6;
         }
 
 
@@ -72,25 +65,25 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
                     .Take(segmentEndIndex - segmentStartIndex + 1)
                     .ToArray();
 
-            if (segmentLabel == "RampDown" ||
-                segmentLabel == "SpikeLow" ||
-                segmentLabel == "BelowBound")
+            if (segmentLabel == ConstantRandomForest.RAMP_DOWN ||
+                segmentLabel == ConstantRandomForest.SPIKE_LOW ||
+                segmentLabel == ConstantRandomForest.BELOW_BOUND)
             {
                 double minimumValue = segmentSignalSlice.Min();
                 int localIndex = Array.IndexOf(segmentSignalSlice, minimumValue);
                 return segmentStartIndex + localIndex;
             }
-
-            if (segmentLabel == "RampUp" ||
-                segmentLabel == "SpikeHigh" ||
-                segmentLabel == "AboveBound")
+            
+            if (segmentLabel == ConstantRandomForest.RAMP_UP ||
+                segmentLabel == ConstantRandomForest.SPIKE_HIGH ||
+                segmentLabel == ConstantRandomForest.ABOVE_BOUND)
             {
                 double maximumValue = segmentSignalSlice.Max();
                 int localIndex = Array.IndexOf(segmentSignalSlice, maximumValue);
                 return segmentStartIndex + localIndex;
             }
 
-            if (segmentLabel == "Oscillation")
+            if (segmentLabel == ConstantRandomForest.OSCILLATION)
             {
                 double maxAbs = segmentSignalSlice.Max(value => Math.Abs(value));
                 double valueWithMaxAbs =

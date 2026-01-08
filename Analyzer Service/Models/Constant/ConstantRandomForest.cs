@@ -26,5 +26,15 @@
         public const string ENERGY_Z_JSON = "energy_z";
 
         public const string DURATION_S_JSON = "duration_s";
+
+        public const string RAMP_DOWN = "RampDown";
+        public const string SPIKE_LOW = "SpikeLow";
+        public const string BELOW_BOUND = "BelowBound";
+        public const string RAMP_UP = "RampUp";
+        public const string SPIKE_HIGH = "SpikeHigh";
+        public const string ABOVE_BOUND = "AboveBound";
+        public const string OSCILLATION = "Oscillation";
+
+
     }
 }

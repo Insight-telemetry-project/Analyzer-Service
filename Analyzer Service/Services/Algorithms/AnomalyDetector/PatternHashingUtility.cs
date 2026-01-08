@@ -24,7 +24,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
         {
             int segmentLength = segmentBoundary.EndIndex - segmentBoundary.StartIndex;
 
-            if (segmentLength <= ConstantPelt.MinimumSegmentLength)
+            if (segmentLength <= ConstantPelt.MINIMUM_SEGMENT_LENGTH)
             {
                 return BuildShortSegmentHash(processedSignal, segmentBoundary);
             }

@@ -9,7 +9,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         private double[,] kernelMatrix;
         private double[,] prefixMatrix;
 
-        public int MinimumSize => ConstantPelt.MinimumSegmentLength;
+        public int MinimumSize => ConstantPelt.MINIMUM_SEGMENT_LENGTH;
 
         public void Fit(List<double> signalValues)
         {
@@ -36,13 +36,13 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double medianSquaredDistance = squaredDistances[squaredDistances.Length / 2];
 
             double sigmaSquared =
-                medianSquaredDistance <= ConstantPelt.ZeroTolerance
-                ? ConstantPelt.DefaultSigmaValue
-                : medianSquaredDistance / ConstantPelt.SigmaDivisionFactor;
+                medianSquaredDistance <= ConstantPelt.ZEROTO_LERANCE
+                ? ConstantPelt.DEFAULT_SIGMA_VALUE
+                : medianSquaredDistance / ConstantPelt.SIGMA_DIVISION_FACTOR;
 
             Parallel.For(0, signalLength, rowIndex =>
             {
-                kernelMatrix[rowIndex, rowIndex] = ConstantPelt.DefaultSigmaValue;
+                kernelMatrix[rowIndex, rowIndex] = ConstantPelt.DEFAULT_SIGMA_VALUE;
 
                 double baseValue = signalValues[rowIndex];
 
