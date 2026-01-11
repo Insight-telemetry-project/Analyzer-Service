@@ -53,6 +53,7 @@ builder.Services.AddSingleton<IHistoricalAnomalySimilarityLogic, HistoricalAnoma
 builder.Services.AddSingleton<IHistoricalAnomalySimilarityService, HistoricalAnomalySimilarityService>();
 builder.Services.AddSingleton<ISignalNoiseTuning, SignalNoiseTuning>();
 
+builder.Services.AddSingleton<IFlightPhaseDetector, FlightPhaseDetector>();
 
 
 

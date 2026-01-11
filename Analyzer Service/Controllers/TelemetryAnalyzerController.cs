@@ -8,6 +8,7 @@ using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using Analyzer_Service.Services;
+using Analyzer_Service.Services.Algorithms.Pelt;
 using Analyzer_Service.Services.Mongo;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -24,17 +25,21 @@ namespace Analyzer_Service.Controllers
         private readonly IHistoricalAnomalySimilarityService _historicalSimilarityService;
 
 
+        private readonly IFlightPhaseDetector _flightPhaseDetector;
+
+
         public TelemetryAnalyzerController(
             IFlightCausality flightCausalityService,
             ISegmentClassificationService segmentClassifier,
-            IHistoricalAnomalySimilarityService historicalSimilarityService
+            IHistoricalAnomalySimilarityService historicalSimilarityService,
+            IFlightPhaseDetector flightPhaseDetector
 
 )
         {
             _flightCausality = flightCausalityService;
             _segmentClassifier = segmentClassifier;
             _historicalSimilarityService = historicalSimilarityService;
-
+            _flightPhaseDetector = flightPhaseDetector;
         }
 
 
@@ -67,6 +72,38 @@ namespace Analyzer_Service.Controllers
 
             return Ok(results);
         }
+
+
+        [HttpGet("segments-with-anomalies-phases/{flightId}/{fieldName}")]
+        public async Task<IActionResult> AnalyzeFlightSegmentsByPhases(int flightId, string fieldName)
+        {
+            SegmentAnalysisResult full = await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, 0);
+
+            FlightPhaseIndexes phaseIndexes = _flightPhaseDetector.Detect(full);
+
+            Task<SegmentAnalysisResult> takeoffTask =
+                _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, phaseIndexes.TakeoffEndIndex);
+
+            Task<SegmentAnalysisResult> cruiseTask =
+                _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, phaseIndexes.TakeoffEndIndex, phaseIndexes.LandingStartIndex);
+
+            Task<SegmentAnalysisResult> landingTask =
+                _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, phaseIndexes.LandingStartIndex, 0);
+
+            await Task.WhenAll(takeoffTask, cruiseTask, landingTask);
+
+            return Ok(new
+            {
+                takeoffEndIndex = phaseIndexes.TakeoffEndIndex,
+                landingStartIndex = phaseIndexes.LandingStartIndex,
+                takeoff = takeoffTask.Result,
+                cruise = cruiseTask.Result,
+                landing = landingTask.Result
+            });
+        }
+
+
+
     }
 }
 
