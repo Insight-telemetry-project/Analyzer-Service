@@ -77,28 +77,30 @@ namespace Analyzer_Service.Controllers
         [HttpGet("segments-with-anomalies-phases/{flightId}/{fieldName}")]
         public async Task<IActionResult> AnalyzeFlightSegmentsByPhases(int flightId, string fieldName)
         {
-            SegmentAnalysisResult full = await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, 0);
+            SegmentAnalysisResult full =
+                await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, 0);
 
             FlightPhaseIndexes phaseIndexes = _flightPhaseDetector.Detect(full);
 
-            Task<SegmentAnalysisResult> takeoffTask =
-                _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, phaseIndexes.TakeoffEndIndex);
+            int takeoffEndIndex = phaseIndexes.TakeoffEndIndex;
+            int landingStartIndex = phaseIndexes.LandingStartIndex;
 
-            Task<SegmentAnalysisResult> cruiseTask =
-                _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, phaseIndexes.TakeoffEndIndex, phaseIndexes.LandingStartIndex);
+            SegmentAnalysisResult takeoff =
+                await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, takeoffEndIndex);
 
-            Task<SegmentAnalysisResult> landingTask =
-                _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, phaseIndexes.LandingStartIndex, 0);
+            SegmentAnalysisResult cruise =
+                await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, takeoffEndIndex, landingStartIndex);
 
-            await Task.WhenAll(takeoffTask, cruiseTask, landingTask);
+            SegmentAnalysisResult landing =
+                await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, landingStartIndex, int.MaxValue);
 
             return Ok(new
             {
-                takeoffEndIndex = phaseIndexes.TakeoffEndIndex,
-                landingStartIndex = phaseIndexes.LandingStartIndex,
-                takeoff = takeoffTask.Result,
-                cruise = cruiseTask.Result,
-                landing = landingTask.Result
+                takeoffEndIndex,
+                landingStartIndex,
+                takeoff,
+                cruise,
+                landing
             });
         }
 

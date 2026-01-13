@@ -35,6 +35,7 @@
         public const string ABOVE_BOUND = "AboveBound";
         public const string OSCILLATION = "Oscillation";
 
-
+        public const string STEADY = "Steady";
+        public const string NEUTRAL = "Neutral";
     }
 }
