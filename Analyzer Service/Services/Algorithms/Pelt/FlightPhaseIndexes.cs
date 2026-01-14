@@ -28,10 +28,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         {
             int flightEndIndex = GetFlightEndIndex(fullResult);
 
-            (bool hasCruiseStats, double cruiseMeanZ, double cruiseStdZ) cruiseStatsResult =
-                ComputeCruiseStats(fullResult, flightEndIndex);
+            CruiseStats cruiseStatsResult = ComputeCruiseStats(fullResult, flightEndIndex);
 
-            double baselineMeanZ = ComputeBaselineMeanZ(fullResult);
+            double baselineMeanZ = fullResult.Segments[0].FeatureValues.MeanZ;
 
             double medianAbsSlope = ComputeMedianAbsSlope(fullResult);
 
@@ -255,115 +254,10 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             return fullResult.Segments[lastSegmentIndex].Segment.EndIndex;
         }
 
-        private int DetectTakeoffByFirstStableAfterClimb(
-            SegmentAnalysisResult fullResult,
-            int maxTakeoffIndex,
-            double stableAbsSlopeThreshold,
-            double climbSlopeThreshold)
-        {
-            bool sawRealClimb = false;
+       
+        
 
-            int segmentCount = fullResult.Segments.Count;
-            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
-            {
-                SegmentClassificationResult segmentResult = fullResult.Segments[segmentIndex];
-
-                int segmentStartIndex = segmentResult.Segment.StartIndex;
-                if (segmentStartIndex > maxTakeoffIndex)
-                {
-                    break;
-                }
-
-                SegmentFeatures segmentFeatures = segmentResult.FeatureValues;
-
-                double segmentSlope = segmentFeatures.Slope;
-                if (segmentSlope >= climbSlopeThreshold)
-                {
-                    sawRealClimb = true;
-                }
-
-                if (IsValidTakeoffFallbackCandidate(
-                        sawRealClimb,
-                        segmentResult,
-                        segmentFeatures,
-                        stableAbsSlopeThreshold) == false)
-                {
-                    continue;
-                }
-
-                return Math.Max(0, segmentResult.Segment.StartIndex);
-            }
-
-            int fallbackEndIndex = FindStrongestPositiveSlopeEnd(fullResult, maxTakeoffIndex);
-            return Math.Max(0, fallbackEndIndex);
-        }
-
-        private bool IsValidTakeoffFallbackCandidate(
-            bool sawRealClimb,
-            SegmentClassificationResult segmentResult,
-            SegmentFeatures segmentFeatures,
-            double stableAbsSlopeThreshold)
-        {
-            bool isStable = IsStableLabel(segmentResult.Label);
-
-            double durationSeconds = segmentFeatures.DurationSeconds;
-            double absSlope = Math.Abs(segmentFeatures.Slope);
-
-            bool isValid =
-                sawRealClimb &&
-                isStable &&
-                durationSeconds >= TakeoffStableMinSeconds &&
-                absSlope <= stableAbsSlopeThreshold;
-
-            return isValid;
-        }
-
-        private int FindStrongestPositiveSlopeEnd(SegmentAnalysisResult fullResult, int maxIndexAllowed)
-        {
-            double bestScore = double.NegativeInfinity;
-            int bestEndIndex = 0;
-
-            int segmentCount = fullResult.Segments.Count;
-            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
-            {
-                SegmentClassificationResult segmentResult = fullResult.Segments[segmentIndex];
-
-                int segmentStartIndex = segmentResult.Segment.StartIndex;
-                int segmentEndIndex = segmentResult.Segment.EndIndex;
-
-                if (segmentStartIndex > maxIndexAllowed)
-                {
-                    break;
-                }
-
-                SegmentFeatures segmentFeatures = segmentResult.FeatureValues;
-
-                double segmentSlope = segmentFeatures.Slope;
-                double durationSeconds = Math.Max(1.0, segmentFeatures.DurationSeconds);
-                double rangeZ = segmentFeatures.RangeZ;
-
-                double positiveSlope = Math.Max(0.0, segmentSlope);
-                double score = positiveSlope * Math.Max(1.0, durationSeconds) * Math.Max(0.001, rangeZ);
-
-                if (score > bestScore)
-                {
-                    bestScore = score;
-                    bestEndIndex = segmentEndIndex;
-                }
-            }
-
-            return bestEndIndex;
-        }
-
-        private double ComputeBaselineMeanZ(SegmentAnalysisResult fullResult)
-        {
-            SegmentClassificationResult firstSegment = fullResult.Segments[0];
-            SegmentFeatures firstFeatures = firstSegment.FeatureValues;
-
-            return firstFeatures.MeanZ;
-        }
-
-        private (bool hasCruiseStats, double cruiseMeanZ, double cruiseStdZ) ComputeCruiseStats(
+        private CruiseStats ComputeCruiseStats(
             SegmentAnalysisResult fullResult,
             int flightEndIndex)
         {
@@ -395,7 +289,16 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             }
 
             bool hasCruiseStats = bestDurationSeconds > 0.0;
-            return hasCruiseStats ? (true, bestMeanZ, bestStdZ) : (false, 0.0, 0.0);
+
+            if (hasCruiseStats)
+            {
+                return new CruiseStats(true,bestMeanZ,bestStdZ);
+            }
+            else
+            {
+                return new CruiseStats(false,0.0,0.0);
+            }
+
 
         }
 
@@ -443,5 +346,110 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double rightMiddle = absoluteSlopes[slopeCount / 2];
             return (leftMiddle + rightMiddle) / 2.0;
         }
+
+
+
+
+
+
+        private int DetectTakeoffByFirstStableAfterClimb(
+            SegmentAnalysisResult fullResult,
+            int maxTakeoffIndex,
+            double stableAbsSlopeThreshold,
+            double climbSlopeThreshold)
+        {
+            bool sawRealClimb = false;
+
+            int segmentCount = fullResult.Segments.Count;
+            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
+            {
+                SegmentClassificationResult segmentResult = fullResult.Segments[segmentIndex];
+
+                int segmentStartIndex = segmentResult.Segment.StartIndex;
+                if (segmentStartIndex > maxTakeoffIndex)
+                {
+                    break;
+                }
+
+                SegmentFeatures segmentFeatures = segmentResult.FeatureValues;
+
+                double segmentSlope = segmentFeatures.Slope;
+                if (segmentSlope >= climbSlopeThreshold)
+                {
+                    sawRealClimb = true;
+                }
+
+                if (IsValidTakeoffFallbackCandidate(
+                        sawRealClimb,
+                        segmentResult,
+                        segmentFeatures,
+                        stableAbsSlopeThreshold) == false)
+                {
+                    continue;
+                }
+
+                return Math.Max(0, segmentResult.Segment.StartIndex);
+            }
+
+            int fallbackEndIndex = FindStrongestPositiveSlopeEnd(fullResult, maxTakeoffIndex);
+            return Math.Max(0, fallbackEndIndex);
+        }
+        private bool IsValidTakeoffFallbackCandidate(
+            bool sawRealClimb,
+            SegmentClassificationResult segmentResult,
+            SegmentFeatures segmentFeatures,
+            double stableAbsSlopeThreshold)
+        {
+            bool isStable = IsStableLabel(segmentResult.Label);
+
+            double durationSeconds = segmentFeatures.DurationSeconds;
+            double absSlope = Math.Abs(segmentFeatures.Slope);
+
+            bool isValid =
+                sawRealClimb &&
+                isStable &&
+                durationSeconds >= TakeoffStableMinSeconds &&
+                absSlope <= stableAbsSlopeThreshold;
+
+            return isValid;
+        }
+        
+        private int FindStrongestPositiveSlopeEnd(SegmentAnalysisResult fullResult, int maxIndexAllowed)
+        {
+            double bestScore = double.NegativeInfinity;
+            int bestEndIndex = 0;
+
+            int segmentCount = fullResult.Segments.Count;
+            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
+            {
+                SegmentClassificationResult segmentResult = fullResult.Segments[segmentIndex];
+
+                int segmentStartIndex = segmentResult.Segment.StartIndex;
+                int segmentEndIndex = segmentResult.Segment.EndIndex;
+
+                if (segmentStartIndex > maxIndexAllowed)
+                {
+                    break;
+                }
+
+                SegmentFeatures segmentFeatures = segmentResult.FeatureValues;
+
+                double segmentSlope = segmentFeatures.Slope;
+                double durationSeconds = Math.Max(1.0, segmentFeatures.DurationSeconds);
+                double rangeZ = segmentFeatures.RangeZ;
+
+                double positiveSlope = Math.Max(0.0, segmentSlope);
+                double score = positiveSlope * Math.Max(1.0, durationSeconds) * Math.Max(0.001, rangeZ);
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestEndIndex = segmentEndIndex;
+                }
+            }
+
+            return bestEndIndex;
+        }
+
     }
 }
