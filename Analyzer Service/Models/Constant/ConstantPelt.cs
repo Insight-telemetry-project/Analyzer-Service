@@ -13,5 +13,11 @@
         public const double SIGMA_DIVISION_FACTOR = 2.0;
         public const int MINIMUM_SEGMENT_LENGTH = 2;
 
+        public const double TAKE_OF_AREA = 0.25;
+        public const double LANDING_AREA = 0.75;
+        public const int FIRST_SEGMENT = 0;
+        public const double LandingStableMinSeconds = 600.0;
+
+
     }
 }

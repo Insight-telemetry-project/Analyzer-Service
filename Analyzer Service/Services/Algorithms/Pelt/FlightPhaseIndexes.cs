@@ -22,15 +22,23 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         private const double TakeoffRiseFraction = 0.75;
         private const double LandingDropStd = 1.0;
 
+        public const double TAKE_OF_AREA = 0.25;
+        public const double LANDING_AREA = 0.75;
+        public const int FIRST_SEGMENT = 0;
+
+
+        FlightPhaseDetector FlightPhase;
+
         public FlightPhaseIndexes Detect(SegmentAnalysisResult fullResult)
         {
-            int flightEndIndex = GetFlightEndIndex(fullResult);
+            int flightEndIndex = fullResult.Segments[fullResult.Segments.Count - 1].Segment.EndIndex;
 
-            CruiseStats cruiseStatsResult = ComputeCruiseStats(fullResult, flightEndIndex);
+            CruiseStats cruiseStatsResult = FlightPhase.ComputeCruiseStats(fullResult, flightEndIndex);
 
-            double baselineMeanZ = fullResult.Segments[0].FeatureValues.MeanZ;
+            double baselineMeanZ = fullResult.Segments[FIRST_SEGMENT].FeatureValues.MeanZ;
 
-            double medianAbsSlope = ComputeMedianAbsSlope(fullResult);
+
+            double medianAbsSlope = FlightPhase.ComputeMedianAbsSlope(fullResult);
 
             double stableAbsSlopeThreshold = Math.Max(medianAbsSlope * StableAbsSlopeMultiplier, 1e-9);
             double climbSlopeThreshold = Math.Max(medianAbsSlope * ClimbSlopeMultiplier, stableAbsSlopeThreshold * 2.0);
@@ -119,7 +127,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double safeCruiseStdZ,
             double requiredLevelByRise)
         {
-            bool isStable = IsStableLabel(segmentResult.Label);
+            bool isStable = segmentResult.Label.IsStableLabel();
 
             double durationSeconds = segmentFeatures.DurationSeconds;
             double absSlope = Math.Abs(segmentFeatures.Slope);
@@ -162,7 +170,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
                 SegmentFeatures stableFeatures = stableCandidate.FeatureValues;
 
-                if (!IsValidLandingStableCandidate(stableCandidate, stableFeatures, stableAbsSlopeThreshold))
+                if (!FlightPhase.IsValidLandingStableCandidate(stableCandidate, stableFeatures, stableAbsSlopeThreshold))
                 {
                     continue;
                 }
@@ -195,101 +203,6 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             }
 
             return takeoffEndIndex;
-        }
-
-        private bool IsValidLandingStableCandidate(
-            SegmentClassificationResult stableCandidate,
-            SegmentFeatures stableFeatures,
-            double stableAbsSlopeThreshold)
-        {
-            return
-                IsStableLabel(stableCandidate.Label) &&
-                stableFeatures.DurationSeconds >= LandingStableMinSeconds &&
-                Math.Abs(stableFeatures.Slope) <= stableAbsSlopeThreshold;
-        }
-
-        private bool IsStableLabel(string label)
-        {
-            return
-                string.Equals(label, ConstantRandomForest.STEADY, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(label, ConstantRandomForest.NEUTRAL, StringComparison.OrdinalIgnoreCase);
-        }
-
-        private int GetFlightEndIndex(SegmentAnalysisResult fullResult)
-        {
-            int lastSegmentIndex = fullResult.Segments.Count - 1;
-            return fullResult.Segments[lastSegmentIndex].Segment.EndIndex;
-        }
-
-        private CruiseStats ComputeCruiseStats(
-            SegmentAnalysisResult fullResult,
-            int flightEndIndex)
-        {
-            double midStartIndex = flightEndIndex * 0.25;
-            double midEndIndex = flightEndIndex * 0.75;
-
-            double bestDurationSeconds = double.NegativeInfinity;
-            double bestMeanZ = 0.0;
-            double bestStdZ = 0.0;
-
-            int segmentCount = fullResult.Segments.Count;
-            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
-            {
-                SegmentClassificationResult segmentResult = fullResult.Segments[segmentIndex];
-                SegmentFeatures segmentFeatures = segmentResult.FeatureValues;
-
-                if (!IsValidCruiseStatsCandidate(segmentResult, segmentFeatures, midStartIndex, midEndIndex))
-                {
-                    continue;
-                }
-
-                double durationSeconds = segmentFeatures.DurationSeconds;
-                if (durationSeconds > bestDurationSeconds)
-                {
-                    bestDurationSeconds = durationSeconds;
-                    bestMeanZ = segmentFeatures.MeanZ;
-                    bestStdZ = segmentFeatures.StdZ;
-                }
-            }    
-            return new CruiseStats(true, bestMeanZ, bestStdZ);
-        }
-
-        private bool IsValidCruiseStatsCandidate(
-            SegmentClassificationResult segmentResult,
-            SegmentFeatures segmentFeatures,
-            double midStartIndex,
-            double midEndIndex)
-        {
-            int segmentStartIndex = segmentResult.Segment.StartIndex;
-            int segmentEndIndex = segmentResult.Segment.EndIndex;
-
-            return
-                IsStableLabel(segmentResult.Label) &&
-                segmentEndIndex >= midStartIndex &&
-                segmentStartIndex <= midEndIndex;
-        }
-
-
-
-        private double ComputeMedianAbsSlope(SegmentAnalysisResult fullResult)
-        {
-            List<double> absoluteSlopes = new List<double>();
-
-            int segmentCount = fullResult.Segments.Count;
-            for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
-            {
-                absoluteSlopes.Add(Math.Abs(fullResult.Segments[segmentIndex].FeatureValues.Slope));
-            }
-
-            absoluteSlopes.Sort();
-
-            int slopeCount = absoluteSlopes.Count;
-            if (slopeCount % 2 == 1)
-            {
-                return absoluteSlopes[slopeCount / 2];
-            }
-
-            return (absoluteSlopes[(slopeCount / 2) - 1] + absoluteSlopes[slopeCount / 2]) / 2.0;
         }
     }
 }
