@@ -58,7 +58,6 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                 flightEndIndex,
                 stableAbsSlopeThreshold,
                 descentSlopeThreshold,
-                cruiseStatsResult.hasCruiseStats,
                 cruiseStatsResult.cruiseMeanZ,
                 cruiseStatsResult.cruiseStdZ,
                 takeoffEndIndex);
@@ -149,7 +148,6 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             int flightEndIndex,
             double stableAbsSlopeThreshold,
             double descentSlopeThreshold,
-            bool hasCruiseStats,
             double cruiseMeanZ,
             double cruiseStdZ,
             int takeoffEndIndex)
@@ -188,11 +186,10 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                 bool isStrongDescentBySlope = nextFeatures.Slope <= -descentSlopeThreshold;
 
                 bool isMeaningfulDropByLevel = false;
-                if (hasCruiseStats)
-                {
-                    double safeCruiseStdZ = Math.Max(cruiseStdZ, 1e-9);
-                    isMeaningfulDropByLevel = nextFeatures.MeanZ <= (cruiseMeanZ - (LandingDropStd * safeCruiseStdZ));
-                }
+                
+                double safeCruiseStdZ = Math.Max(cruiseStdZ, 1e-9);
+                isMeaningfulDropByLevel = nextFeatures.MeanZ <= (cruiseMeanZ - (LandingDropStd * safeCruiseStdZ));
+                
 
                 if (isRampDown || isStrongDescentBySlope || isMeaningfulDropByLevel)
                 {

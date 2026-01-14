@@ -3,12 +3,10 @@
     public class CruiseStats
     {
 
-        public bool hasCruiseStats;
         public double cruiseMeanZ;
         public double cruiseStdZ;
 
-        public CruiseStats(bool hasCruiseStats, double cruiseMeanZ, double cruiseStdZ) {
-            this.hasCruiseStats = hasCruiseStats;
+        public CruiseStats( double cruiseMeanZ, double cruiseStdZ) {
             this.cruiseStdZ = cruiseStdZ;
             this.cruiseMeanZ = cruiseMeanZ;
         }

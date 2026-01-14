@@ -77,7 +77,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                     bestStdZ = segmentFeatures.StdZ;
                 }
             }
-            return new CruiseStats(true, bestMeanZ, bestStdZ);
+            return new CruiseStats(bestMeanZ, bestStdZ);
         }
 
 
