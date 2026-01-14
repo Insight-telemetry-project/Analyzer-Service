@@ -97,7 +97,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         {
             return
                 IsStableLabel(stableCandidate.Label) &&
-                stableFeatures.DurationSeconds >= ConstantPelt.LandingStableMinSeconds &&
+                stableFeatures.DurationSeconds >= ConstantPelt.LANDING_STABLE_MIN_SECONDS &&
                 Math.Abs(stableFeatures.Slope) <= stableAbsSlopeThreshold;
         }
     }

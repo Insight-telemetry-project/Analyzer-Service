@@ -19,7 +19,7 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
                 double mean = meanArray[featureIndex];
                 double scale = scaleArray[featureIndex];
 
-                if (Math.Abs(scale) < ConstantAlgorithm.Epsilon)
+                if (Math.Abs(scale) < ConstantAlgorithm.EPSILON)
                 {
                     scale = 1.0;
                 }

@@ -40,7 +40,7 @@ namespace Analyzer_Service.Services.Algorithms
                 }
 
                 double mad = ComputeMedian(absoluteDeviation);
-                double threshold = sigma * ConstantAlgorithm.THRESHOLD_FORMULA * (mad + ConstantAlgorithm.Epsilon);
+                double threshold = sigma * ConstantAlgorithm.THRESHOLD_FORMULA * (mad + ConstantAlgorithm.EPSILON);
 
                 if (Math.Abs(inputValues[index] - median) > threshold)
                 {
@@ -71,7 +71,7 @@ namespace Analyzer_Service.Services.Algorithms
             }
 
             double std = Math.Sqrt(varianceSum / count);
-            if (std < ConstantAlgorithm.Epsilon)
+            if (std < ConstantAlgorithm.EPSILON)
             {
                 std = 1.0;
             }

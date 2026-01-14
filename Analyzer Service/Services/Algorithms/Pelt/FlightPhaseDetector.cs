@@ -18,13 +18,13 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
             CruiseStats cruiseStatsResult = _flightPhaseDetectorUtils.ComputeCruiseStats(fullResult, flightEndIndex);
 
-            double baselineMeanZ = fullResult.Segments[ConstantPelt.FirstSegmentIndex].FeatureValues.MeanZ;
+            double baselineMeanZ = fullResult.Segments[ConstantPelt.FIRST_SEGMENTINDEX].FeatureValues.MeanZ;
 
             double medianAbsSlope = _flightPhaseDetectorUtils.ComputeMedianAbsSlope(fullResult);
 
-            double stableAbsSlopeThreshold = Math.Max(medianAbsSlope * ConstantPelt.StableAbsSlopeMultiplier, 1e-9);
-            double climbSlopeThreshold = Math.Max(medianAbsSlope * ConstantPelt.ClimbSlopeMultiplier, stableAbsSlopeThreshold * 2.0);
-            double descentSlopeThreshold = Math.Max(medianAbsSlope * ConstantPelt.DescentSlopeMultiplier, stableAbsSlopeThreshold * 2.0);
+            double stableAbsSlopeThreshold = Math.Max(medianAbsSlope * ConstantPelt.STABLE_ABS_SLOPE_MULTIPLIER, ConstantAlgorithm.NOT_DIVIDE_IN_ZERO);
+            double climbSlopeThreshold = Math.Max(medianAbsSlope * ConstantPelt.CLIMB_SLOPE_MULTIPLIER, stableAbsSlopeThreshold * ConstantPelt.MULTIPLIER_THRESHOLD);
+            double descentSlopeThreshold = Math.Max(medianAbsSlope * ConstantPelt.DESCENT_SLOPE_MULTIPLIER, stableAbsSlopeThreshold * ConstantPelt.MULTIPLIER_THRESHOLD);
 
             int takeoffEndIndex = DetectTakeoffEndIndex(
                 fullResult,
@@ -51,12 +51,12 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double cruiseStdZ,
             double baselineMeanZ)
         {
-            int maxTakeoffIndex = (int)Math.Round(flightEndIndex * ConstantPelt.TakeoffMustBeBeforePercent);
+            int maxTakeoffIndex = (int)Math.Round(flightEndIndex * ConstantPelt.Takeoff_Must_Be_Before_Percent);
 
             double safeCruiseStdZ = Math.Max(cruiseStdZ, 1e-9);
 
             double requiredLevelByRise =
-                baselineMeanZ + (ConstantPelt.TakeoffRiseFraction * (cruiseMeanZ - baselineMeanZ));
+                baselineMeanZ + (ConstantPelt.TAKEOFF_RISE_FRACTION * (cruiseMeanZ - baselineMeanZ));
 
             int segmentCount = fullResult.Segments.Count;
             for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
@@ -106,9 +106,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
             return
                 isStable &&
-                durationSeconds >= ConstantPelt.TakeoffStableMinSeconds &&
+                durationSeconds >= ConstantPelt.TAKEOFF_STABLE_MIN_SECONDS &&
                 absSlope <= stableAbsSlopeThreshold &&
-                distanceToCruiseStd <= ConstantPelt.TakeoffCruiseStdTolerance &&
+                distanceToCruiseStd <= ConstantPelt.TAKEOFF_CRUISE_STD_TO_LERANCE &&
                 candidateMeanZ >= requiredLevelByRise;
         }
 
@@ -116,7 +116,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             SegmentAnalysisResult fullResult, int flightEndIndex, double stableAbsSlopeThreshold,
             double descentSlopeThreshold, double cruiseMeanZ, double cruiseStdZ, int takeoffEndIndex)
         {
-            int landingSearchStartIndex = (int)Math.Round(flightEndIndex * ConstantPelt.LandingMustBeAfterPercent);
+            int landingSearchStartIndex = (int)Math.Round(flightEndIndex * ConstantPelt.LANDING_MUST_BE_AFTER_PERCENT);
 
             int segmentCount = fullResult.Segments.Count;
 
@@ -149,8 +149,8 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                 bool isRampDown = string.Equals(nextSegment.Label, ConstantRandomForest.RAMP_DOWN, StringComparison.OrdinalIgnoreCase);
                 bool isStrongDescentBySlope = nextFeatures.Slope <= -descentSlopeThreshold;
 
-                double safeCruiseStdZ = Math.Max(cruiseStdZ, 1e-9);
-                bool isMeaningfulDropByLevel = nextFeatures.MeanZ <= (cruiseMeanZ - (ConstantPelt.LandingDropStd * safeCruiseStdZ));
+                double safeCruiseStdZ = Math.Max(cruiseStdZ, ConstantAlgorithm.NOT_DIVIDE_IN_ZERO);
+                bool isMeaningfulDropByLevel = nextFeatures.MeanZ <= (cruiseMeanZ - (ConstantPelt.LANDING_DROP_STD * safeCruiseStdZ));
 
                 if (isRampDown || isStrongDescentBySlope || isMeaningfulDropByLevel)
                 {

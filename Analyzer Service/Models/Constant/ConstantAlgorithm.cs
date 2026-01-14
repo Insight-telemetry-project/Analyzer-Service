@@ -15,7 +15,7 @@
         public const int LAG_DIVISOR = 5000;
         public const int MIN_LAG = 2;
 
-        public const double Epsilon = 1e-12;
+        public const double EPSILON = 1e-12;
         public const double MadToStdScale = 1.4826;
 
 
@@ -23,5 +23,7 @@
         public const double HAMPEL_SIGMA = 3.0;
 
         public const double THRESHOLD_FORMULA = 1.4826;
+
+        public const double NOT_DIVIDE_IN_ZERO = 1e-9;
     }
 }

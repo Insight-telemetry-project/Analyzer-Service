@@ -16,26 +16,28 @@
         public const double TAKE_OF_AREA = 0.25;
         public const double LANDING_AREA = 0.75;
         public const int FIRST_SEGMENT = 0;
-        public const double LandingStableMinSeconds = 600.0;
+        public const double LANDING_STABLE_MIN_SECONDS = 600.0;
 
-        public const double SpikeThresholdMedianMultiplier = 12.0;
-        public const double MaxAllowedSpikeFraction = 0.03;
-        public const double MaxAllowedTailRatio = 25.0;
+        public const double SPIKE_THRESHOLD_MEDIAN_MULTIPLIER = 12.0;
+        public const double MAX_ALLOWED_SPIKE_FRACTION = 0.03;
+        public const double MAX_ALLOWED_TAIL_RATIO = 25.0;
         public const double P95Quantile = 0.95;
 
-        public const double TakeoffMustBeBeforePercent = 0.60;
-        public const double LandingMustBeAfterPercent = 0.70;
+        public const double Takeoff_Must_Be_Before_Percent = 0.60;
+        public const double LANDING_MUST_BE_AFTER_PERCENT = 0.70;
 
-        public const double StableAbsSlopeMultiplier = 1.2;
-        public const double ClimbSlopeMultiplier = 2.5;
-        public const double DescentSlopeMultiplier = 2.5;
+        public const double STABLE_ABS_SLOPE_MULTIPLIER = 1.2;
+        public const double CLIMB_SLOPE_MULTIPLIER = 2.5;
+        public const double DESCENT_SLOPE_MULTIPLIER = 2.5;
 
-        public const double TakeoffStableMinSeconds = 120.0;
-        public const double LandingDropStd = 1.0;
+        public const double TAKEOFF_STABLE_MIN_SECONDS = 120.0;
+        public const double LANDING_DROP_STD = 1.0;
 
-        public const double TakeoffCruiseStdTolerance = 1.0;
-        public const double TakeoffRiseFraction = 0.75;
+        public const double TAKEOFF_CRUISE_STD_TO_LERANCE = 1.0;
+        public const double TAKEOFF_RISE_FRACTION = 0.75;
 
-        public const int FirstSegmentIndex = 0;
+        public const int FIRST_SEGMENTINDEX = 0;
+
+        public const double MULTIPLIER_THRESHOLD = 2.0;
     }
 }
