@@ -1,12 +1,13 @@
 ﻿using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
-using System.Runtime.CompilerServices;
+using System;
+using System.Collections.Generic;
 
 namespace Analyzer_Service.Services.Algorithms.Pelt
 {
     public static class FlightPhaseDetectorExtensions
     {
-        public static double ComputeMedianAbsSlope(this FlightPhaseDetector flightPhase ,SegmentAnalysisResult fullResult)
+        public static double ComputeMedianAbsSlope(this FlightPhaseDetector flightPhase, SegmentAnalysisResult fullResult)
         {
             List<double> absoluteSlopes = new List<double>();
 
@@ -27,24 +28,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             return (absoluteSlopes[(slopeCount / 2) - 1] + absoluteSlopes[slopeCount / 2]) / 2.0;
         }
 
-
-        public static bool IsValidCruiseStatsCandidate(
-            this FlightPhaseDetector flightPhase,
-            SegmentClassificationResult segmentResult,
-            SegmentFeatures segmentFeatures,
-            double midStartIndex,
-            double midEndIndex)
-        {
-
-
-            int segmentStartIndex = segmentResult.Segment.StartIndex;
-            int segmentEndIndex = segmentResult.Segment.EndIndex;
-
-            return
-                IsStableLabel(segmentResult.Label) &&
-                segmentEndIndex >= midStartIndex &&
-                segmentStartIndex <= midEndIndex;
-        }
+        
 
         public static CruiseStats ComputeCruiseStats(
             this FlightPhaseDetector flightPhase,
@@ -62,14 +46,15 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
             {
                 SegmentClassificationResult segmentResult = fullResult.Segments[segmentIndex];
-                SegmentFeatures segmentFeatures = segmentResult.FeatureValues;
 
-                if (!flightPhase.IsValidCruiseStatsCandidate(segmentResult, segmentFeatures, midStartIndex, midEndIndex))
+                if (!flightPhase.IsValidCruiseStatsCandidate(segmentResult, midStartIndex, midEndIndex))
                 {
                     continue;
                 }
 
+                SegmentFeatures segmentFeatures = segmentResult.FeatureValues;
                 double durationSeconds = segmentFeatures.DurationSeconds;
+
                 if (durationSeconds > bestDurationSeconds)
                 {
                     bestDurationSeconds = durationSeconds;
@@ -77,9 +62,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                     bestStdZ = segmentFeatures.StdZ;
                 }
             }
+
             return new CruiseStats(bestMeanZ, bestStdZ);
         }
-
 
         public static bool IsStableLabel(this string label)
         {
@@ -97,9 +82,24 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double stableAbsSlopeThreshold)
         {
             return
-                IsStableLabel(stableCandidate.Label) &&
+                stableCandidate.Label.IsStableLabel() &&
                 stableFeatures.DurationSeconds >= ConstantPelt.LandingStableMinSeconds &&
                 Math.Abs(stableFeatures.Slope) <= stableAbsSlopeThreshold;
+        }
+
+        public static bool IsValidCruiseStatsCandidate(
+            this FlightPhaseDetector flightPhase,
+            SegmentClassificationResult segmentResult,
+            double midStartIndex,
+            double midEndIndex)
+        {
+            int segmentStartIndex = segmentResult.Segment.StartIndex;
+            int segmentEndIndex = segmentResult.Segment.EndIndex;
+
+            return
+                segmentResult.Label.IsStableLabel() &&
+                segmentEndIndex >= midStartIndex &&
+                segmentStartIndex <= midEndIndex;
         }
     }
 }

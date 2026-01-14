@@ -2,7 +2,6 @@
 using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using System;
-using System.Collections.Generic;
 
 namespace Analyzer_Service.Services.Algorithms.Pelt
 {
@@ -16,29 +15,22 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         private const double DescentSlopeMultiplier = 2.5;
 
         private const double TakeoffStableMinSeconds = 120.0;
-        private const double LandingStableMinSeconds = 600.0;
+        private const double LandingDropStd = 1.0;
 
         private const double TakeoffCruiseStdTolerance = 1.0;
         private const double TakeoffRiseFraction = 0.75;
-        private const double LandingDropStd = 1.0;
 
-        public const double TAKE_OF_AREA = 0.25;
-        public const double LANDING_AREA = 0.75;
-        public const int FIRST_SEGMENT = 0;
-
-
-        FlightPhaseDetector FlightPhase;
+        private const int FirstSegmentIndex = 0;
 
         public FlightPhaseIndexes Detect(SegmentAnalysisResult fullResult)
         {
             int flightEndIndex = fullResult.Segments[fullResult.Segments.Count - 1].Segment.EndIndex;
 
-            CruiseStats cruiseStatsResult = FlightPhase.ComputeCruiseStats(fullResult, flightEndIndex);
+            CruiseStats cruiseStatsResult = this.ComputeCruiseStats(fullResult, flightEndIndex);
 
-            double baselineMeanZ = fullResult.Segments[FIRST_SEGMENT].FeatureValues.MeanZ;
+            double baselineMeanZ = fullResult.Segments[FirstSegmentIndex].FeatureValues.MeanZ;
 
-
-            double medianAbsSlope = FlightPhase.ComputeMedianAbsSlope(fullResult);
+            double medianAbsSlope = this.ComputeMedianAbsSlope(fullResult);
 
             double stableAbsSlopeThreshold = Math.Max(medianAbsSlope * StableAbsSlopeMultiplier, 1e-9);
             double climbSlopeThreshold = Math.Max(medianAbsSlope * ClimbSlopeMultiplier, stableAbsSlopeThreshold * 2.0);
@@ -81,8 +73,6 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double requiredLevelByRise =
                 baselineMeanZ + (TakeoffRiseFraction * (cruiseMeanZ - baselineMeanZ));
 
-            bool sawRealClimb = false;
-
             int segmentCount = fullResult.Segments.Count;
             for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
             {
@@ -96,13 +86,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
                 SegmentFeatures segmentFeatures = segmentResult.FeatureValues;
 
-                if (segmentFeatures.Slope >= climbSlopeThreshold)
-                {
-                    sawRealClimb = true;
-                }
+                
 
                 if (IsValidTakeoffEndCandidate(
-                        sawRealClimb,
                         segmentResult,
                         segmentFeatures,
                         stableAbsSlopeThreshold,
@@ -110,7 +96,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                         safeCruiseStdZ,
                         requiredLevelByRise))
                 {
-                    return Math.Max(0, segmentResult.Segment.StartIndex);
+                    return Math.Max(0, segmentStartIndex);
                 }
             }
 
@@ -118,7 +104,6 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         }
 
         private bool IsValidTakeoffEndCandidate(
-            bool sawRealClimb,
             SegmentClassificationResult segmentResult,
             SegmentFeatures segmentFeatures,
             double stableAbsSlopeThreshold,
@@ -135,7 +120,6 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double distanceToCruiseStd = Math.Abs(candidateMeanZ - cruiseMeanZ) / safeCruiseStdZ;
 
             return
-                sawRealClimb &&
                 isStable &&
                 durationSeconds >= TakeoffStableMinSeconds &&
                 absSlope <= stableAbsSlopeThreshold &&
@@ -168,7 +152,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
                 SegmentFeatures stableFeatures = stableCandidate.FeatureValues;
 
-                if (!FlightPhase.IsValidLandingStableCandidate(stableCandidate, stableFeatures, stableAbsSlopeThreshold))
+                if (!this.IsValidLandingStableCandidate(stableCandidate, stableFeatures, stableAbsSlopeThreshold))
                 {
                     continue;
                 }
@@ -185,11 +169,8 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                 bool isRampDown = string.Equals(nextSegment.Label, ConstantRandomForest.RAMP_DOWN, StringComparison.OrdinalIgnoreCase);
                 bool isStrongDescentBySlope = nextFeatures.Slope <= -descentSlopeThreshold;
 
-                bool isMeaningfulDropByLevel = false;
-                
                 double safeCruiseStdZ = Math.Max(cruiseStdZ, 1e-9);
-                isMeaningfulDropByLevel = nextFeatures.MeanZ <= (cruiseMeanZ - (LandingDropStd * safeCruiseStdZ));
-                
+                bool isMeaningfulDropByLevel = nextFeatures.MeanZ <= (cruiseMeanZ - (LandingDropStd * safeCruiseStdZ));
 
                 if (isRampDown || isStrongDescentBySlope || isMeaningfulDropByLevel)
                 {

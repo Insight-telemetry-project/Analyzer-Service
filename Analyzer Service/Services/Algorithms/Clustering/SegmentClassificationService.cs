@@ -455,6 +455,7 @@ namespace Analyzer_Service.Services
 
                 diffs.Add(Math.Abs(currentValue - previousValue));
             }
+
             diffs.Sort();
 
             int count = diffs.Count;
@@ -462,11 +463,10 @@ namespace Analyzer_Service.Services
             double medianDiff = diffs[count / 2];
             double safeMedian = Math.Max(medianDiff, ConstantPelt.ZEROTO_LERANCE);
 
-            int p95Index = (int)Math.Floor(0.95 * (count - 1));
+            int p95Index = (int)Math.Floor(ConstantPelt.P95Quantile * (count - 1));
             double p95Diff = diffs[p95Index];
 
-
-            double spikeThreshold = safeMedian * 12.0;
+            double spikeThreshold = safeMedian * ConstantPelt.SpikeThresholdMedianMultiplier;
 
             int spikeCount = 0;
             for (int index = 0; index < count; index++)
@@ -480,8 +480,10 @@ namespace Analyzer_Service.Services
             double spikeFraction = (double)spikeCount / (double)count;
             double tailRatio = p95Diff / safeMedian;
 
+            bool hasTooManyLargeSpikes = spikeFraction >= ConstantPelt.MaxAllowedSpikeFraction;
+            bool hasHeavyTailComparedToTypical = tailRatio >= ConstantPelt.MaxAllowedTailRatio;
 
-            if (spikeFraction >= 0.03 || tailRatio >= 25.0)
+            if (hasTooManyLargeSpikes || hasHeavyTailComparedToTypical)
             {
                 return false;
             }

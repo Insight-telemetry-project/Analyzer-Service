@@ -18,6 +18,9 @@
         public const int FIRST_SEGMENT = 0;
         public const double LandingStableMinSeconds = 600.0;
 
-
+        public const double SpikeThresholdMedianMultiplier = 12.0;
+        public const double MaxAllowedSpikeFraction = 0.03;
+        public const double MaxAllowedTailRatio = 25.0;
+        public const double P95Quantile = 0.95;
     }
 }
