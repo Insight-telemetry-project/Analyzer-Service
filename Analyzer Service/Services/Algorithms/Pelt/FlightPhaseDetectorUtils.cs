@@ -1,13 +1,14 @@
 ﻿using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using System;
 using System.Collections.Generic;
 
 namespace Analyzer_Service.Services.Algorithms.Pelt
 {
-    public static class FlightPhaseDetectorExtensions
+    public class FlightPhaseDetectorUtils : IFlightPhaseDetectorUtils
     {
-        public static double ComputeMedianAbsSlope(this FlightPhaseDetector flightPhase, SegmentAnalysisResult fullResult)
+        public double ComputeMedianAbsSlope(SegmentAnalysisResult fullResult)
         {
             List<double> absoluteSlopes = new List<double>();
 
@@ -20,6 +21,11 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             absoluteSlopes.Sort();
 
             int slopeCount = absoluteSlopes.Count;
+            if (slopeCount == 0)
+            {
+                return 0.0;
+            }
+
             if (slopeCount % 2 == 1)
             {
                 return absoluteSlopes[slopeCount / 2];
@@ -28,10 +34,21 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             return (absoluteSlopes[(slopeCount / 2) - 1] + absoluteSlopes[slopeCount / 2]) / 2.0;
         }
 
-        
+        public bool IsValidCruiseStatsCandidate(
+            SegmentClassificationResult segmentResult,
+            double midStartIndex,
+            double midEndIndex)
+        {
+            int segmentStartIndex = segmentResult.Segment.StartIndex;
+            int segmentEndIndex = segmentResult.Segment.EndIndex;
 
-        public static CruiseStats ComputeCruiseStats(
-            this FlightPhaseDetector flightPhase,
+            return
+                IsStableLabel(segmentResult.Label) &&
+                segmentEndIndex >= midStartIndex &&
+                segmentStartIndex <= midEndIndex;
+        }
+
+        public CruiseStats ComputeCruiseStats(
             SegmentAnalysisResult fullResult,
             int flightEndIndex)
         {
@@ -47,7 +64,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             {
                 SegmentClassificationResult segmentResult = fullResult.Segments[segmentIndex];
 
-                if (!flightPhase.IsValidCruiseStatsCandidate(segmentResult, midStartIndex, midEndIndex))
+                if (!IsValidCruiseStatsCandidate(segmentResult, midStartIndex, midEndIndex))
                 {
                     continue;
                 }
@@ -66,40 +83,22 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             return new CruiseStats(bestMeanZ, bestStdZ);
         }
 
-        public static bool IsStableLabel(this string label)
+        public bool IsStableLabel(string label)
         {
             return
                 string.Equals(label, ConstantRandomForest.STEADY, StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(label, ConstantRandomForest.NEUTRAL, StringComparison.OrdinalIgnoreCase);
         }
 
-
-
-        public static bool IsValidLandingStableCandidate(
-            this FlightPhaseDetector flightPhase,
+        public bool IsValidLandingStableCandidate(
             SegmentClassificationResult stableCandidate,
             SegmentFeatures stableFeatures,
             double stableAbsSlopeThreshold)
         {
             return
-                stableCandidate.Label.IsStableLabel() &&
+                IsStableLabel(stableCandidate.Label) &&
                 stableFeatures.DurationSeconds >= ConstantPelt.LandingStableMinSeconds &&
                 Math.Abs(stableFeatures.Slope) <= stableAbsSlopeThreshold;
-        }
-
-        public static bool IsValidCruiseStatsCandidate(
-            this FlightPhaseDetector flightPhase,
-            SegmentClassificationResult segmentResult,
-            double midStartIndex,
-            double midEndIndex)
-        {
-            int segmentStartIndex = segmentResult.Segment.StartIndex;
-            int segmentEndIndex = segmentResult.Segment.EndIndex;
-
-            return
-                segmentResult.Label.IsStableLabel() &&
-                segmentEndIndex >= midStartIndex &&
-                segmentStartIndex <= midEndIndex;
         }
     }
 }

@@ -22,5 +22,20 @@
         public const double MaxAllowedSpikeFraction = 0.03;
         public const double MaxAllowedTailRatio = 25.0;
         public const double P95Quantile = 0.95;
+
+        public const double TakeoffMustBeBeforePercent = 0.60;
+        public const double LandingMustBeAfterPercent = 0.70;
+
+        public const double StableAbsSlopeMultiplier = 1.2;
+        public const double ClimbSlopeMultiplier = 2.5;
+        public const double DescentSlopeMultiplier = 2.5;
+
+        public const double TakeoffStableMinSeconds = 120.0;
+        public const double LandingDropStd = 1.0;
+
+        public const double TakeoffCruiseStdTolerance = 1.0;
+        public const double TakeoffRiseFraction = 0.75;
+
+        public const int FirstSegmentIndex = 0;
     }
 }

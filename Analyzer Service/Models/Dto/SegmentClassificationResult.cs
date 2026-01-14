@@ -1,4 +1,6 @@
-﻿namespace Analyzer_Service.Models.Dto
+﻿using System.Runtime.CompilerServices;
+
+namespace Analyzer_Service.Models.Dto
 {
     public class SegmentClassificationResult
     {
@@ -11,5 +13,5 @@
             Segment = segment;
             Label = label;
         }
-    }
+    }    
 }

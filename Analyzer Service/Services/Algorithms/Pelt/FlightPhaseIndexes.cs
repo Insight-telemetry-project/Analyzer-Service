@@ -7,34 +7,24 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 {
     public class FlightPhaseDetector : IFlightPhaseDetector
     {
-        private const double TakeoffMustBeBeforePercent = 0.60;
-        private const double LandingMustBeAfterPercent = 0.70;
-
-        private const double StableAbsSlopeMultiplier = 1.2;
-        private const double ClimbSlopeMultiplier = 2.5;
-        private const double DescentSlopeMultiplier = 2.5;
-
-        private const double TakeoffStableMinSeconds = 120.0;
-        private const double LandingDropStd = 1.0;
-
-        private const double TakeoffCruiseStdTolerance = 1.0;
-        private const double TakeoffRiseFraction = 0.75;
-
-        private const int FirstSegmentIndex = 0;
-
+        private readonly IFlightPhaseDetectorUtils _flightPhaseDetectorUtils;
+        public FlightPhaseDetector(IFlightPhaseDetectorUtils flightPhaseDetectorUtils) 
+        {
+            _flightPhaseDetectorUtils = flightPhaseDetectorUtils;
+        }
         public FlightPhaseIndexes Detect(SegmentAnalysisResult fullResult)
         {
-            int flightEndIndex = fullResult.Segments[fullResult.Segments.Count - 1].Segment.EndIndex;
+            int flightEndIndex = fullResult.GetFlightEndIndex(fullResult.Segments.Count);
 
-            CruiseStats cruiseStatsResult = this.ComputeCruiseStats(fullResult, flightEndIndex);
+            CruiseStats cruiseStatsResult = _flightPhaseDetectorUtils.ComputeCruiseStats(fullResult, flightEndIndex);
 
-            double baselineMeanZ = fullResult.Segments[FirstSegmentIndex].FeatureValues.MeanZ;
+            double baselineMeanZ = fullResult.Segments[ConstantPelt.FirstSegmentIndex].FeatureValues.MeanZ;
 
-            double medianAbsSlope = this.ComputeMedianAbsSlope(fullResult);
+            double medianAbsSlope = _flightPhaseDetectorUtils.ComputeMedianAbsSlope(fullResult);
 
-            double stableAbsSlopeThreshold = Math.Max(medianAbsSlope * StableAbsSlopeMultiplier, 1e-9);
-            double climbSlopeThreshold = Math.Max(medianAbsSlope * ClimbSlopeMultiplier, stableAbsSlopeThreshold * 2.0);
-            double descentSlopeThreshold = Math.Max(medianAbsSlope * DescentSlopeMultiplier, stableAbsSlopeThreshold * 2.0);
+            double stableAbsSlopeThreshold = Math.Max(medianAbsSlope * ConstantPelt.StableAbsSlopeMultiplier, 1e-9);
+            double climbSlopeThreshold = Math.Max(medianAbsSlope * ConstantPelt.ClimbSlopeMultiplier, stableAbsSlopeThreshold * 2.0);
+            double descentSlopeThreshold = Math.Max(medianAbsSlope * ConstantPelt.DescentSlopeMultiplier, stableAbsSlopeThreshold * 2.0);
 
             int takeoffEndIndex = DetectTakeoffEndIndex(
                 fullResult,
@@ -45,14 +35,9 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                 cruiseStatsResult.cruiseStdZ,
                 baselineMeanZ);
 
-            int landingStartIndex = DetectLandingStartIndex(
-                fullResult,
-                flightEndIndex,
-                stableAbsSlopeThreshold,
-                descentSlopeThreshold,
-                cruiseStatsResult.cruiseMeanZ,
-                cruiseStatsResult.cruiseStdZ,
-                takeoffEndIndex);
+            int landingStartIndex = DetectLandingStartIndex( fullResult, flightEndIndex, stableAbsSlopeThreshold,
+                                                           descentSlopeThreshold, cruiseStatsResult.cruiseMeanZ, cruiseStatsResult.cruiseStdZ,
+                                                            takeoffEndIndex);
 
             return new FlightPhaseIndexes(takeoffEndIndex, landingStartIndex);
         }
@@ -66,12 +51,12 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double cruiseStdZ,
             double baselineMeanZ)
         {
-            int maxTakeoffIndex = (int)Math.Round(flightEndIndex * TakeoffMustBeBeforePercent);
+            int maxTakeoffIndex = (int)Math.Round(flightEndIndex * ConstantPelt.TakeoffMustBeBeforePercent);
 
             double safeCruiseStdZ = Math.Max(cruiseStdZ, 1e-9);
 
             double requiredLevelByRise =
-                baselineMeanZ + (TakeoffRiseFraction * (cruiseMeanZ - baselineMeanZ));
+                baselineMeanZ + (ConstantPelt.TakeoffRiseFraction * (cruiseMeanZ - baselineMeanZ));
 
             int segmentCount = fullResult.Segments.Count;
             for (int segmentIndex = 0; segmentIndex < segmentCount; segmentIndex++)
@@ -111,7 +96,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double safeCruiseStdZ,
             double requiredLevelByRise)
         {
-            bool isStable = segmentResult.Label.IsStableLabel();
+            bool isStable = _flightPhaseDetectorUtils.IsStableLabel(segmentResult.Label);
 
             double durationSeconds = segmentFeatures.DurationSeconds;
             double absSlope = Math.Abs(segmentFeatures.Slope);
@@ -121,22 +106,17 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
             return
                 isStable &&
-                durationSeconds >= TakeoffStableMinSeconds &&
+                durationSeconds >= ConstantPelt.TakeoffStableMinSeconds &&
                 absSlope <= stableAbsSlopeThreshold &&
-                distanceToCruiseStd <= TakeoffCruiseStdTolerance &&
+                distanceToCruiseStd <= ConstantPelt.TakeoffCruiseStdTolerance &&
                 candidateMeanZ >= requiredLevelByRise;
         }
 
         private int DetectLandingStartIndex(
-            SegmentAnalysisResult fullResult,
-            int flightEndIndex,
-            double stableAbsSlopeThreshold,
-            double descentSlopeThreshold,
-            double cruiseMeanZ,
-            double cruiseStdZ,
-            int takeoffEndIndex)
+            SegmentAnalysisResult fullResult, int flightEndIndex, double stableAbsSlopeThreshold,
+            double descentSlopeThreshold, double cruiseMeanZ, double cruiseStdZ, int takeoffEndIndex)
         {
-            int landingSearchStartIndex = (int)Math.Round(flightEndIndex * LandingMustBeAfterPercent);
+            int landingSearchStartIndex = (int)Math.Round(flightEndIndex * ConstantPelt.LandingMustBeAfterPercent);
 
             int segmentCount = fullResult.Segments.Count;
 
@@ -152,7 +132,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
                 SegmentFeatures stableFeatures = stableCandidate.FeatureValues;
 
-                if (!this.IsValidLandingStableCandidate(stableCandidate, stableFeatures, stableAbsSlopeThreshold))
+                if (!_flightPhaseDetectorUtils.IsValidLandingStableCandidate(stableCandidate, stableFeatures, stableAbsSlopeThreshold))
                 {
                     continue;
                 }
@@ -170,7 +150,7 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
                 bool isStrongDescentBySlope = nextFeatures.Slope <= -descentSlopeThreshold;
 
                 double safeCruiseStdZ = Math.Max(cruiseStdZ, 1e-9);
-                bool isMeaningfulDropByLevel = nextFeatures.MeanZ <= (cruiseMeanZ - (LandingDropStd * safeCruiseStdZ));
+                bool isMeaningfulDropByLevel = nextFeatures.MeanZ <= (cruiseMeanZ - (ConstantPelt.LandingDropStd * safeCruiseStdZ));
 
                 if (isRampDown || isStrongDescentBySlope || isMeaningfulDropByLevel)
                 {
