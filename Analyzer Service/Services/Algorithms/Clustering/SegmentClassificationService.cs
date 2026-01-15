@@ -230,8 +230,15 @@ namespace Analyzer_Service.Services
                 classificationResults.Select(result => result.Label).ToList(),
                 featureList,
                 status);
+            if (status == flightStatus.TakeOf_Landing)
+            {
 
-            if (!IsNoisy)
+                return detectedSegmentIndexes
+                    .Take(10)
+                    .ToList();
+
+            }
+                if (!IsNoisy)
             {
                 return detectedSegmentIndexes;
             }
