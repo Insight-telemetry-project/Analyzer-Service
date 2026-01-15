@@ -17,7 +17,5 @@ namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
         double ComputeAnomalyStrengthScore(
             SegmentFeatures segmentFeatures);
 
-
-        void Apply(PeltTuningSettings settings);
     }
 }

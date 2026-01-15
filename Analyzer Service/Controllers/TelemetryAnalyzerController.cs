@@ -61,7 +61,7 @@ namespace Analyzer_Service.Controllers
         [HttpGet("similar-anomalies/{flightId}/{fieldName}")]
         public async Task<IActionResult> FindSimilarAnomalies(int flightId, string fieldName)
         {
-            List<HistoricalSimilarityResult> results = await _historicalSimilarityService.FindSimilarAnomaliesAsync(flightId, fieldName);
+            List<HistoricalSimilarityResult> results = await _historicalSimilarityService.FindSimilarAnomaliesAsync(flightId, fieldName,flightStatus.FullFlight);
 
             return Ok(results);
         }

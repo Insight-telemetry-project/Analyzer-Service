@@ -14,28 +14,23 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
         public PeltTuningSettings Get(flightStatus status)
         {
-            string key = status switch
+            string key="";
+
+
+            switch (status)
             {
-                flightStatus.TakeOf_Landing => "AnomalyTuningProfiles:TakeoffLanding",
-                flightStatus.Cruising => "AnomalyTuningProfiles:Cruising",
-                _ => "AnomalyTuningProfiles:FullFlight"
-            };
+                case flightStatus.TakeOf_Landing:
+                    key = "AnomalyTuningProfiles:TakeoffLanding";
+                    break;
 
+                case flightStatus.Cruising:
+                    key = "AnomalyTuningProfiles:Cruising";
+                    break;
 
-            //switch (status)
-            //{
-            //    case flightStatus.TakeOf_Landing:
-            //        key = "AnomalyTuningProfiles:TakeoffLanding";
-            //        break;
-
-            //    case flightStatus.Cruising:
-            //        key = "AnomalyTuningProfiles:Cruising";
-            //        break;
-
-            //    case flightStatus.FullFlight:
-            //        key = "AnomalyTuningProfiles:FullFlight";
-            //        break;
-            //}
+                case flightStatus.FullFlight:
+                    key = "AnomalyTuningProfiles:FullFlight";
+                    break;
+            }
 
             PeltTuningSettings settings = new PeltTuningSettings();
             configuration.GetSection(key).Bind(settings);

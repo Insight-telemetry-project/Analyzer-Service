@@ -1,10 +1,12 @@
 ﻿using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Interface.Algorithms;
+using Microsoft.Extensions.Options;
 
 namespace Analyzer_Service.Services.Algorithms
 {
     public class SignalProcessingUtility : ISignalProcessingUtility
     {
+
         public double[] ApplyHampel(double[] inputValues, int windowSize, double sigma)
         {
             int valueCount = inputValues.Length;

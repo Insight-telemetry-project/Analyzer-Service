@@ -1,5 +1,6 @@
 ﻿using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Enums;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt.Analyzer_Service.Models.Interface.Algorithms.Pelt;
@@ -13,21 +14,26 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
         private readonly ISignalPreprocessor signalPreprocessor;
         private readonly IPeltAlgorithm peltAlgorithm;
         private readonly ISignalProcessingUtility signalProcessingUtility;
+        private readonly ITuningSettingsFactory tuningSettingsFactory;
 
         public ChangePointDetectionService(
             IPrepareFlightData flightDataPreparer,
             ISignalPreprocessor signalPreprocessor,
             IPeltAlgorithm peltAlgorithm,
-            ISignalProcessingUtility signalProcessingUtility)
+            ISignalProcessingUtility signalProcessingUtility,
+            ITuningSettingsFactory tuningSettingsFactory)
         {
             this.flightDataPreparer = flightDataPreparer;
             this.signalPreprocessor = signalPreprocessor;
             this.peltAlgorithm = peltAlgorithm;
             this.signalProcessingUtility = signalProcessingUtility;
+            this.tuningSettingsFactory = tuningSettingsFactory;
         }
 
-        public async Task<List<int>> DetectChangePointsAsync(int masterIndex, string targetFieldName)
+        public async Task<List<int>> DetectChangePointsAsync(int masterIndex, string targetFieldName,flightStatus status)
         {
+            PeltTuningSettings settings = tuningSettingsFactory.Get(status);
+
             SignalSeries series =await flightDataPreparer.PrepareFlightDataAsync(
                 masterIndex,
                 ConstantFligth.TIMESTEP_COL,
@@ -45,26 +51,26 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double samplingFrequency = ComputeSamplingFrequency(timeSeries);
 
             int minimumSegmentSamples =
-                (int)Math.Round(samplingFrequency * ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS);
+                (int)Math.Round(samplingFrequency * settings.MINIMUM_SEGMENT_DURATION_SECONDS);
 
             List<int> rawBreakpoints =
                 peltAlgorithm
                     .DetectChangePoints(
                         cleanedSignal,
                         minimumSegmentSamples,
-                        ConstantPelt.SAMPLING_JUMP,
-                        ConstantPelt.PENALTY_BETA)
+                        settings.SAMPLING_JUMP,
+                        settings.PENALTY_BETA)
                     .ToList();
 
 
 
 
             List<int> filtered =
-                ApplyMinimumGap(rawBreakpoints, timeSeries.ToArray(), ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS);
+                ApplyMinimumGap(rawBreakpoints, timeSeries.ToArray(), settings.MINIMUM_SEGMENT_DURATION_SECONDS);
 
             return filtered;
         }
-
+         
         private double ComputeSamplingFrequency(IReadOnlyList<double> timeSeries)
         {
             int count = timeSeries.Count - 1;

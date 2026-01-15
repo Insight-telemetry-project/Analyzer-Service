@@ -7,82 +7,50 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 {
     public class SignalNoiseTuning : ISignalNoiseTuning
     {
-        public void Apply(PeltTuningSettings settings)
-        {
-            ConstantPelt.SAMPLING_JUMP = settings.SAMPLING_JUMP;
-            ConstantPelt.PENALTY_BETA = settings.PENALTY_BETA;
-            ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS =
-                settings.MINIMUM_SEGMENT_DURATION_SECONDS;
 
-            ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS =
-                settings.MINIMUM_DURATION_SECONDS;
-            ConstantAnomalyDetection.MINIMUM_RANGEZ =
-                settings.MINIMUM_RANGEZ;
-            ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD =
-                settings.PATTERN_SUPPORT_THRESHOLD;
-
-            ConstantAnomalyDetection.FINAL_SCORE =
-                settings.FINAL_SCORE;
-            ConstantAnomalyDetection.HASH_SIMILARITY =
-                settings.HASH_SIMILARITY;
-            ConstantAnomalyDetection.FEATURE_SIMILARITY =
-                settings.FEATURE_SIMILARITY;
-            ConstantAnomalyDetection.DURATION_SIMILARITY =
-                settings.DURATION_SIMILARITY;
-
-            ConstantAnomalyDetection.HASH_THRESHOLD =
-                settings.HASH_THRESHOLD;
-
-            ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX =
-                settings.RARE_LABEL_COUNT_MAX;
-            ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION =
-                settings.RARE_LABEL_TIME_FRACTION;
-            ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS =
-                settings.POST_MINIMUM_GAP_SECONDS;
-        }
 
         public void ApplyLowNoiseConfiguration()
         {
-            ConstantPelt.SAMPLING_JUMP = 10;
-            ConstantPelt.PENALTY_BETA = 0.5;
-            ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS = 1.2;
+            //    ConstantPelt.SAMPLING_JUMP = 10;
+            //    ConstantPelt.PENALTY_BETA = 0.5;
+            //    ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS = 1.2;
 
-            ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS = 0.5;
-            ConstantAnomalyDetection.MINIMUM_RANGEZ = 1.2;
-            ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD = 4;
+            //    ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS = 0.5;
+            //    ConstantAnomalyDetection.MINIMUM_RANGEZ = 1.2;
+            //    ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD = 4;
 
-            ConstantAnomalyDetection.FINAL_SCORE = 0.9;
-            ConstantAnomalyDetection.HASH_SIMILARITY = 0.55;
-            ConstantAnomalyDetection.FEATURE_SIMILARITY = 0.2;
-            ConstantAnomalyDetection.DURATION_SIMILARITY = 0.05;
+            //    ConstantAnomalyDetection.FINAL_SCORE = 0.9;
+            //    ConstantAnomalyDetection.HASH_SIMILARITY = 0.55;
+            //    ConstantAnomalyDetection.FEATURE_SIMILARITY = 0.2;
+            //    ConstantAnomalyDetection.DURATION_SIMILARITY = 0.05;
 
-            ConstantAnomalyDetection.HASH_THRESHOLD = 0.015;
-            ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX = 4;
-            ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION = 0.1;
-            ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 10;
+            //    ConstantAnomalyDetection.HASH_THRESHOLD = 0.015;
+            //    ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX = 4;
+            //    ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION = 0.1;
+            //    ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 10;
         }
 
         public void ApplyHighNoiseConfiguration()
         {
-           
-            ConstantPelt.SAMPLING_JUMP = 12;
-            ConstantPelt.PENALTY_BETA = 1.0;
-            ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS = 1.5;
 
-            ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS = 0.7;
-            ConstantAnomalyDetection.MINIMUM_RANGEZ = 0.9;
-            ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD = 3;
+            //    ConstantPelt.SAMPLING_JUMP = 12;
+            //    ConstantPelt.PENALTY_BETA = 1.0;
+            //    ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS = 1.5;
 
-            ConstantAnomalyDetection.FINAL_SCORE = 0.82;
-            ConstantAnomalyDetection.HASH_SIMILARITY = 0.55;
-            ConstantAnomalyDetection.FEATURE_SIMILARITY = 0.18;
-            ConstantAnomalyDetection.DURATION_SIMILARITY = 0.05;
+            //    ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS = 0.7;
+            //    ConstantAnomalyDetection.MINIMUM_RANGEZ = 0.9;
+            //    ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD = 3;
 
-            ConstantAnomalyDetection.HASH_THRESHOLD = 0.01;
+            //    ConstantAnomalyDetection.FINAL_SCORE = 0.82;
+            //    ConstantAnomalyDetection.HASH_SIMILARITY = 0.55;
+            //    ConstantAnomalyDetection.FEATURE_SIMILARITY = 0.18;
+            //    ConstantAnomalyDetection.DURATION_SIMILARITY = 0.05;
 
-            ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX = 7;
-            ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION = 0.12;
-            ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 6;
+            //    ConstantAnomalyDetection.HASH_THRESHOLD = 0.01;
+
+            //    ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX = 7;
+            //    ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION = 0.12;
+            //    ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 6;
         }
 
 

@@ -1,19 +1,28 @@
 ﻿using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Enums;
 using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt;
+using Analyzer_Service.Services.Algorithms.Pelt;
 
 namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 {
     public class HistoricalAnomalySimilarityLogic : IHistoricalAnomalySimilarityLogic
     {
-        public double CompareHashesFuzzy(double[] hashA, double[] hashB)
+        private readonly ITuningSettingsFactory _tuningSettingsFactory;
+        public HistoricalAnomalySimilarityLogic(ITuningSettingsFactory tuningSettingsFactory) 
         {
+            _tuningSettingsFactory = tuningSettingsFactory;
+        }
+        public double CompareHashesFuzzy(double[] hashA, double[] hashB, flightStatus status)
+        {
+            PeltTuningSettings settings = _tuningSettingsFactory.Get(status);
             int length = hashA.Length;
             int differenceCount = 0;
 
             for (int index = 0; index < length; index++)
             {
-                if (Math.Abs(hashA[index] - hashB[index]) > ConstantAnomalyDetection.HASH_THRESHOLD)
+                if (Math.Abs(hashA[index] - hashB[index]) > settings.HASH_THRESHOLD)
                 {
                     differenceCount++;
                 }
@@ -90,12 +99,13 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
             return similarity;
         }
 
-        public double ComputeWeightedScore(double hashSimilarity, double featureSimilarity, double durationSimilarity)
+        public double ComputeWeightedScore(double hashSimilarity, double featureSimilarity, double durationSimilarity, flightStatus status)
         {
+            PeltTuningSettings settings = _tuningSettingsFactory.Get(status);
             double finalScore =
-                (ConstantAnomalyDetection.HASH_SIMILARITY * hashSimilarity) +
-                (ConstantAnomalyDetection.FEATURE_SIMILARITY * featureSimilarity) +
-                (ConstantAnomalyDetection.DURATION_SIMILARITY * durationSimilarity);
+                (settings.HASH_SIMILARITY * hashSimilarity) +
+                (settings.FEATURE_SIMILARITY * featureSimilarity) +
+                (settings.DURATION_SIMILARITY * durationSimilarity);
 
             return finalScore;
         }

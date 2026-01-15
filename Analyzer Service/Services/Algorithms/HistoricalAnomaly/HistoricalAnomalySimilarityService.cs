@@ -3,9 +3,11 @@ using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Enums;
 using Analyzer_Service.Models.Interface.Algorithms.Clustering;
 using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
+using Analyzer_Service.Services.Algorithms.Pelt;
 using MongoDB.Driver;
 using System.Collections.Generic;
 using System.Reflection.Metadata;
@@ -17,20 +19,23 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
         private readonly IFlightTelemetryMongoProxy mongoProxy;
         private readonly IHistoricalAnomalySimilarityLogic logic;
         private readonly ISegmentClassificationService segmentClassifier;
-
+        private readonly ITuningSettingsFactory _tuningSettingsFactory;
         public HistoricalAnomalySimilarityService(
             IFlightTelemetryMongoProxy mongoProxy,
             IHistoricalAnomalySimilarityLogic logic,
-            ISegmentClassificationService segmentClassification)
+            ISegmentClassificationService segmentClassification,
+            ITuningSettingsFactory tuningSettingsFactory)
         {
             this.mongoProxy = mongoProxy;
             this.logic = logic;
             this.segmentClassifier = segmentClassification;
+            this._tuningSettingsFactory = tuningSettingsFactory;
         }
 
         public async Task<List<HistoricalSimilarityResult>> FindSimilarAnomaliesAsync(
            int masterIndex,
-           string parameterName)
+           string parameterName,
+           flightStatus status)
         {
             SegmentAnalysisResult classification =
                 await segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex, parameterName, 0, 0, flightStatus.FullFlight);
@@ -54,7 +59,8 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
                     masterIndex,
                     parameterName,
                     classification.Segments,
-                    finalResults);
+                    finalResults,
+                    status);
 
             }
 
@@ -65,8 +71,11 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
            int masterIndex,
            string parameterName,
            List<SegmentClassificationResult> segments,
-           List<HistoricalSimilarityResult> finalResults)
+           List<HistoricalSimilarityResult> finalResults,
+           flightStatus status)
         {
+            PeltTuningSettings settings = _tuningSettingsFactory.Get(status);
+
             SegmentClassificationResult current = segments[anomalyIndex];
 
             IAsyncCursor<HistoricalAnomalyRecord> cursor =
@@ -84,9 +93,9 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
                         continue;
                     }
 
-                    SimilarityScores similarity = ComputeSimilarity(record, current);
+                    SimilarityScores similarity = ComputeSimilarity(record, current,status);
 
-                    if (similarity.FinalScore >= ConstantAnomalyDetection.FINAL_SCORE)
+                    if (similarity.FinalScore >= settings.FINAL_SCORE)
                     {
                         HistoricalSimilarityResult result =
                             CreateResult(record, current, similarity);
@@ -98,12 +107,12 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
         }
 
 
-        private SimilarityScores ComputeSimilarity(HistoricalAnomalyRecord record,SegmentClassificationResult current)
+        private SimilarityScores ComputeSimilarity(HistoricalAnomalyRecord record,SegmentClassificationResult current,flightStatus status)
         {
             double[] existingHash = ParseHash(record.PatternHash);
             double[] newHash = current.HashVector;
 
-            double hashSim = logic.CompareHashesFuzzy(existingHash, newHash);
+            double hashSim = logic.CompareHashesFuzzy(existingHash, newHash,status);
             double featureSim = logic.CompareFeatureVectors(record.FeatureValues, current.FeatureValues);
 
             double existingDuration = record.EndIndex - record.StartIndex;
@@ -111,7 +120,7 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 
             double durationSim = logic.CompareDurationSimilarity(existingDuration, newDuration);
 
-            double final = logic.ComputeWeightedScore(hashSim, featureSim, durationSim);
+            double final = logic.ComputeWeightedScore(hashSim, featureSim, durationSim,status);
 
             return new SimilarityScores
             {

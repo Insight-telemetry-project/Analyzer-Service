@@ -62,10 +62,11 @@ namespace Analyzer_Service.Services
         private async Task<List<SegmentBoundary>> DetectSegments(
             int masterIndex,
             string fieldName,
-            int totalSampleCount)
+            int totalSampleCount,
+            flightStatus status)
         {
             List<int> rawChangePointIndexes =
-                await changePointDetectionService.DetectChangePointsAsync(masterIndex, fieldName);
+                await changePointDetectionService.DetectChangePointsAsync(masterIndex, fieldName,status);
 
             List<int> cleanedChangePointIndexes =
                 rawChangePointIndexes
@@ -132,9 +133,9 @@ namespace Analyzer_Service.Services
 
 
 
-            PeltTuningSettings tuningSettings = tuningSettingsFactory.Get(status);
+            //PeltTuningSettings tuningSettings = tuningSettingsFactory.Get(status);
 
-            signalNoiseTuning.Apply(tuningSettings);
+            //signalNoiseTuning.Apply(tuningSettings);
 
             //if (IsNoisy)
             //{
@@ -153,7 +154,7 @@ namespace Analyzer_Service.Services
             //    case (flightStatus.FullFlight):
             //        if (IsNoisy)
             //        {
-            //            signalNoiseTuning.ApplyHighNoiseConfiguration();
+            signalNoiseTuning.ApplyHighNoiseConfiguration();
             //        }
             //        break;
             //}
@@ -161,7 +162,7 @@ namespace Analyzer_Service.Services
 
 
             List<SegmentBoundary> detectedSegments =
-                await DetectSegments(masterIndex, fieldName, signalValues.Count);
+                await DetectSegments(masterIndex, fieldName, signalValues.Count,status);
 
             List<double> processedSignalValues = PreprocessSignal(signalValues);
 
@@ -185,7 +186,7 @@ namespace Analyzer_Service.Services
                     processedSignalValues,
                     mergedSegmentBoundaries,
                     segmentClassificationResults,
-                    featureList);
+                    featureList,status);
 
             List<int> anomalySampleIndexes =
                 ComputeRepresentativeSamples(
@@ -219,14 +220,16 @@ namespace Analyzer_Service.Services
             List<double> processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<SegmentClassificationResult> classificationResults,
-            List<SegmentFeatures> featureList)
+            List<SegmentFeatures> featureList,
+            flightStatus status)
         {
             List<int> detectedSegmentIndexes = anomalyDetectionUtility.DetectAnomalies(
                 timeSeriesValues,
                 processedSignalValues,
                 segmentBoundaries,
                 classificationResults.Select(result => result.Label).ToList(),
-                featureList);
+                featureList,
+                status);
 
             if (!IsNoisy)
             {

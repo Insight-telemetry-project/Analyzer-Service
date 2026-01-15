@@ -1,4 +1,5 @@
 ﻿using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Enums;
 
 namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
 {
@@ -9,6 +10,7 @@ namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
             List<double> processedSignal,
             List<SegmentBoundary> segmentList,
             List<string> labelList,
-            List<SegmentFeatures> featureList);
+            List<SegmentFeatures> featureList,
+            flightStatus status);
     }
 }
