@@ -1,4 +1,6 @@
-﻿using Analyzer_Service.Models.Dto;
+﻿using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Enums;
 using Analyzer_Service.Models.Interface.Algorithms.Clustering;
 using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
 using Analyzer_Service.Models.Interface.Mongo;
@@ -8,7 +10,6 @@ using MongoDB.Driver;
 using System.Collections.Generic;
 using System.Reflection.Metadata;
 using System.Threading.Tasks;
-using Analyzer_Service.Models.Constant;
 namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 {
     public class HistoricalAnomalySimilarityService : IHistoricalAnomalySimilarityService
@@ -32,7 +33,7 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
            string parameterName)
         {
             SegmentAnalysisResult classification =
-                await segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex, parameterName, 0, 0);
+                await segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex, parameterName, 0, 0, flightStatus.FullFlight);
 
             List<HistoricalSimilarityResult> finalResults = new List<HistoricalSimilarityResult>();
 

@@ -56,6 +56,8 @@ builder.Services.AddSingleton<ISignalNoiseTuning, SignalNoiseTuning>();
 builder.Services.AddSingleton<IFlightPhaseDetector, FlightPhaseDetector>();
 builder.Services.AddSingleton<IFlightPhaseDetectorUtils, FlightPhaseDetectorUtils>();
 
+builder.Services.AddSingleton<ITuningSettingsFactory, TuningSettingsFactory>();
+
 
 
 

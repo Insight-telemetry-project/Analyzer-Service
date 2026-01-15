@@ -1,5 +1,6 @@
 ﻿using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Enums;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector;
 using Analyzer_Service.Models.Interface.Algorithms.Clustering;
@@ -7,7 +8,7 @@ using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Schema;
-
+using Analyzer_Service.Services.Algorithms.Pelt;
 namespace Analyzer_Service.Services
 {
     public class SegmentClassificationService : ISegmentClassificationService
@@ -22,6 +23,8 @@ namespace Analyzer_Service.Services
         private readonly IPatternHashingUtility patternHashingUtility;
         private readonly ISignalNoiseTuning signalNoiseTuning;
 
+        private readonly ITuningSettingsFactory tuningSettingsFactory;
+
         public Boolean IsNoisy = true;
 
         public SegmentClassificationService(
@@ -33,7 +36,8 @@ namespace Analyzer_Service.Services
             ISegmentLogicUtility segmentLogicUtility,
             IFlightTelemetryMongoProxy flightTelemetryMongoProxy,
             IPatternHashingUtility patternHashingUtility,
-            ISignalNoiseTuning signalNoiseTuning)
+            ISignalNoiseTuning signalNoiseTuning,
+            ITuningSettingsFactory tuningSettingsFactory)
         {
             this.flightDataPreparer = flightDataPreparer;
             this.changePointDetectionService = changePointDetectionService;
@@ -44,6 +48,7 @@ namespace Analyzer_Service.Services
             this.flightTelemetryMongoProxy = flightTelemetryMongoProxy;
             this.patternHashingUtility = patternHashingUtility;
             this.signalNoiseTuning = signalNoiseTuning;
+            this.tuningSettingsFactory = tuningSettingsFactory;
         }
 
         private async Task<SignalSeries> LoadFlightData(int masterIndex, string fieldName)
@@ -106,7 +111,8 @@ namespace Analyzer_Service.Services
             int masterIndex,
             string fieldName,
             int startIndex,
-            int endIndex)
+            int endIndex,
+            flightStatus status)
         {
             (List<double> timeSeriesValues, List<double> signalValues) =
          await LoadRangeAsync(masterIndex, fieldName, startIndex, endIndex);
@@ -124,11 +130,35 @@ namespace Analyzer_Service.Services
             bool isNoisyFlight = DetermineIsNoisyFlight(signalValues);
             IsNoisy = isNoisyFlight;
 
-            if (IsNoisy)
-            {
-                signalNoiseTuning.ApplyLowNoiseConfiguration();
-            }
-            
+
+
+            PeltTuningSettings tuningSettings = tuningSettingsFactory.Get(status);
+
+            signalNoiseTuning.Apply(tuningSettings);
+
+            //if (IsNoisy)
+            //{
+            //    signalNoiseTuning.ApplyHighNoiseConfiguration();
+            //}
+
+            //switch (status)
+            //{
+            //    case (flightStatus.TakeOf_Landing):
+            //        //signalNoiseTuning.ApplyHighNoiseConfiguration();
+            //        break;
+
+            //    case (flightStatus.Cruising):
+            //        break;
+
+            //    case (flightStatus.FullFlight):
+            //        if (IsNoisy)
+            //        {
+            //            signalNoiseTuning.ApplyHighNoiseConfiguration();
+            //        }
+            //        break;
+            //}
+
+
 
             List<SegmentBoundary> detectedSegments =
                 await DetectSegments(masterIndex, fieldName, signalValues.Count);

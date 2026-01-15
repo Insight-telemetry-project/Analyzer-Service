@@ -1,4 +1,5 @@
 ﻿using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Services.Algorithms.Pelt;
 
 namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
 {
@@ -15,5 +16,8 @@ namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
 
         double ComputeAnomalyStrengthScore(
             SegmentFeatures segmentFeatures);
+
+
+        void Apply(PeltTuningSettings settings);
     }
 }

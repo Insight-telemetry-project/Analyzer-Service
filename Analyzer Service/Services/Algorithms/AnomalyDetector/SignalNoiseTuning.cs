@@ -1,12 +1,47 @@
 ﻿using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector;
+using Analyzer_Service.Services.Algorithms.Pelt;
 
 namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 {
     public class SignalNoiseTuning : ISignalNoiseTuning
     {
-        public void ApplyHighNoiseConfiguration()
+        public void Apply(PeltTuningSettings settings)
+        {
+            ConstantPelt.SAMPLING_JUMP = settings.SAMPLING_JUMP;
+            ConstantPelt.PENALTY_BETA = settings.PENALTY_BETA;
+            ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS =
+                settings.MINIMUM_SEGMENT_DURATION_SECONDS;
+
+            ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS =
+                settings.MINIMUM_DURATION_SECONDS;
+            ConstantAnomalyDetection.MINIMUM_RANGEZ =
+                settings.MINIMUM_RANGEZ;
+            ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD =
+                settings.PATTERN_SUPPORT_THRESHOLD;
+
+            ConstantAnomalyDetection.FINAL_SCORE =
+                settings.FINAL_SCORE;
+            ConstantAnomalyDetection.HASH_SIMILARITY =
+                settings.HASH_SIMILARITY;
+            ConstantAnomalyDetection.FEATURE_SIMILARITY =
+                settings.FEATURE_SIMILARITY;
+            ConstantAnomalyDetection.DURATION_SIMILARITY =
+                settings.DURATION_SIMILARITY;
+
+            ConstantAnomalyDetection.HASH_THRESHOLD =
+                settings.HASH_THRESHOLD;
+
+            ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX =
+                settings.RARE_LABEL_COUNT_MAX;
+            ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION =
+                settings.RARE_LABEL_TIME_FRACTION;
+            ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS =
+                settings.POST_MINIMUM_GAP_SECONDS;
+        }
+
+        public void ApplyLowNoiseConfiguration()
         {
             ConstantPelt.SAMPLING_JUMP = 10;
             ConstantPelt.PENALTY_BETA = 0.5;
@@ -27,7 +62,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 10;
         }
 
-        public void ApplyLowNoiseConfiguration()
+        public void ApplyHighNoiseConfiguration()
         {
            
             ConstantPelt.SAMPLING_JUMP = 12;
