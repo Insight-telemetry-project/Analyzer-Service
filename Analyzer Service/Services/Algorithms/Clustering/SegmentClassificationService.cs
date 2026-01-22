@@ -127,39 +127,10 @@ namespace Analyzer_Service.Services
                     AnomalyIndexes = new List<int>()
                 };
             }
-
             bool isNoisyFlight = DetermineIsNoisyFlight(signalValues);
             IsNoisy = isNoisyFlight;
 
-
-
-            //PeltTuningSettings tuningSettings = tuningSettingsFactory.Get(status);
-
-            //signalNoiseTuning.Apply(tuningSettings);
-
-            //if (IsNoisy)
-            //{
-            //    signalNoiseTuning.ApplyHighNoiseConfiguration();
-            //}
-
-            //switch (status)
-            //{
-            //    case (flightStatus.TakeOf_Landing):
-            //        //signalNoiseTuning.ApplyHighNoiseConfiguration();
-            //        break;
-
-            //    case (flightStatus.Cruising):
-            //        break;
-
-            //    case (flightStatus.FullFlight):
-            //        if (IsNoisy)
-            //        {
             signalNoiseTuning.ApplyHighNoiseConfiguration();
-            //        }
-            //        break;
-            //}
-
-
 
             List<SegmentBoundary> detectedSegments =
                 await DetectSegments(masterIndex, fieldName, signalValues.Count,status);
@@ -173,10 +144,8 @@ namespace Analyzer_Service.Services
                 segmentClassificationResults
                     .Select(result => result.Segment)
                     .ToList();
-
             List<SegmentFeatures> featureList =
                 BuildFeatureList(timeSeriesValues, processedSignalValues, mergedSegmentBoundaries);
-
             AttachFeaturesToResults(segmentClassificationResults, featureList);
             AttachHashVectors(timeSeriesValues, processedSignalValues, segmentClassificationResults);
 

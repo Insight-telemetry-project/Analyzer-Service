@@ -42,13 +42,13 @@ namespace Analyzer_Service.Services.Mongo
 
         public async Task<List<TelemetryFlightData>> GetFromFlightDataAsync(int masterIndex)
         {
-            FilterDefinition<TelemetryFlightData> filter =Builders<TelemetryFlightData>.Filter.Eq(ConstantFligth.FLIGHT_ID, masterIndex);
+            FilterDefinition<TelemetryFlightData> filter = Builders<TelemetryFlightData>.Filter.Eq(ConstantFligth.FLIGHT_ID, masterIndex);
 
             List<TelemetryFlightData> results = await _telemetryFlightData.Find(filter).ToListAsync();
             return results;
         }
 
-       
+
         public async Task<int> GetFlightLengthAsync(int masterIndex)
         {
             FilterDefinition<TelemetryFlightData> filter =

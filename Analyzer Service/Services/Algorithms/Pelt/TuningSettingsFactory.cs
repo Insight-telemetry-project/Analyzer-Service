@@ -6,35 +6,30 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
     public class TuningSettingsFactory : ITuningSettingsFactory
     {
         private readonly IConfiguration configuration;
-
+        public PeltTuningSettings[] settingsArr = Enumerable.Repeat(new PeltTuningSettings(),3).ToArray();
         public TuningSettingsFactory(IConfiguration configuration)
         {
             this.configuration = configuration;
+
+            configuration.GetSection("AnomalyTuningProfiles:TakeoffLanding").Bind(settingsArr[0]);
+            configuration.GetSection("AnomalyTuningProfiles:Cruising").Bind(settingsArr[1]);
+            configuration.GetSection("AnomalyTuningProfiles:FullFlight").Bind(settingsArr[2]);
         }
 
         public PeltTuningSettings Get(flightStatus status)
         {
-            string key="";
-
-
             switch (status)
             {
                 case flightStatus.TakeOf_Landing:
-                    key = "AnomalyTuningProfiles:TakeoffLanding";
-                    break;
+                    return this.settingsArr[0];
 
                 case flightStatus.Cruising:
-                    key = "AnomalyTuningProfiles:Cruising";
-                    break;
 
-                case flightStatus.FullFlight:
-                    key = "AnomalyTuningProfiles:FullFlight";
-                    break;
+                    return this.settingsArr[1];
+
+                default:
+                    return this.settingsArr[2];
             }
-
-            PeltTuningSettings settings = new PeltTuningSettings();
-            configuration.GetSection(key).Bind(settings);
-            return settings;
         }
     }
 }
