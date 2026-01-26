@@ -17,10 +17,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             this.signalProcessingUtility = signalProcessingUtility;
         }
 
-        public string ComputeHash(
-            List<double> timeSeries,
-            List<double> processedSignal,
-            SegmentBoundary segmentBoundary)
+        public string ComputeHash(List<double> processedSignal, SegmentBoundary segmentBoundary)
         {
             int segmentLength = segmentBoundary.EndIndex - segmentBoundary.StartIndex;
 
@@ -29,18 +26,8 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
                 return BuildShortSegmentHash(processedSignal, segmentBoundary);
             }
 
-            double segmentStartTime = timeSeries[segmentBoundary.StartIndex];
-            double segmentEndTime = timeSeries[segmentBoundary.EndIndex - 1];
-            double segmentDuration = AdjustDuration(segmentEndTime - segmentStartTime);
-
-            double[] normalizedTimeArray = BuildNormalizedTimeArray(
-                timeSeries,
-                segmentBoundary,
-                segmentStartTime,
-                segmentDuration);
-
-            double[] segmentValueArray =
-                BuildSegmentValueArray(processedSignal, segmentBoundary);
+            double[] normalizedTimeArray = BuildNormalizedTimeArray(segmentLength);
+            double[] segmentValueArray = BuildSegmentValueArray(processedSignal, segmentBoundary);
 
             double[] resamplingGrid = CreateResamplingGrid(ConstantAnomalyDetection.SHAPE_LENGTH);
 
@@ -62,33 +49,14 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             return string.Join(ConstantAnomalyDetection.HASH_SPLIT, repeatedValueArray);
         }
 
-        private static double AdjustDuration(double rawDuration)
+        private static double[] BuildNormalizedTimeArray(int segmentLength)
         {
-            if (rawDuration <= ConstantAnomalyDetection.DURATION_HASH_THRESHOLD)
-            {
-                return ConstantAnomalyDetection.DURATION_HASH_MIN;
-            }
-
-            return rawDuration;
-        }
-
-        private static double[] BuildNormalizedTimeArray(
-            List<double> timeSeries,
-            SegmentBoundary segmentBoundary,
-            double segmentStartTime,
-            double segmentDuration)
-        {
-            int segmentLength = segmentBoundary.EndIndex - segmentBoundary.StartIndex;
+            double safeLength = Math.Max(2, segmentLength);
             double[] normalizedTimeArray = new double[segmentLength];
 
-            for (int segmentOffset = 0; segmentOffset < segmentLength; segmentOffset++)
+            for (int indexInSegment = 0; indexInSegment < segmentLength; indexInSegment++)
             {
-                int sourceIndex = segmentBoundary.StartIndex + segmentOffset;
-
-                double timeValue = timeSeries[sourceIndex];
-                double normalizedTime = (timeValue - segmentStartTime) / segmentDuration;
-
-                normalizedTimeArray[segmentOffset] = normalizedTime;
+                normalizedTimeArray[indexInSegment] = (double)indexInSegment / (safeLength - 1);
             }
 
             return normalizedTimeArray;

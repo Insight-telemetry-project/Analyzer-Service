@@ -7,8 +7,7 @@ namespace Analyzer_Service.Models.Interface.Algorithms
     {
         public List<SegmentBoundary> BuildSegmentsFromPoints(List<int> boundaries,int sampleCount);
 
-        public SegmentFeatures ExtractFeatures(List<double> timeSeries,List<double> processedSignal,
-            SegmentBoundary segment,double previousMean,double nextMean);
+        SegmentFeatures ExtractFeatures(List<double> timeSeries, List<double> processedSignal, SegmentBoundary segment, double previousMean, double nextMean);
 
 
         public int CountPeaks(List<double> signal,int startIndex,int endIndex);

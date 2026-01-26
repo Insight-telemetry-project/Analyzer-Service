@@ -5,12 +5,12 @@ namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
 {
     public interface IAnomalyDetectionUtility
     {
-        public List<int> DetectAnomalies(
-            List<double> timeSeries,
-            List<double> processedSignal,
-            List<SegmentBoundary> segmentList,
-            List<string> labelList,
-            List<SegmentFeatures> featureList,
-            flightStatus status);
+        List<int> DetectAnomalies(
+    List<double> processedSignalValues,
+    List<SegmentBoundary> segmentBoundaries,
+    List<string> segmentLabelList,
+    List<SegmentFeatures> featureValueList,
+    flightStatus status);
+
     }
 }
