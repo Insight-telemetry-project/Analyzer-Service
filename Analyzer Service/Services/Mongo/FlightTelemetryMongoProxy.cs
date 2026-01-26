@@ -1,10 +1,12 @@
 using Analyzer_Service.Models.Configuration;
 using Analyzer_Service.Models.Constant;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
+using System.Collections.Concurrent;
 
 namespace Analyzer_Service.Services.Mongo
 {
@@ -13,6 +15,10 @@ namespace Analyzer_Service.Services.Mongo
         private readonly IMongoCollection<TelemetrySensorFields> _telemetryFields;
         private readonly IMongoCollection<TelemetryFlightData> _telemetryFlightData;
         private readonly IMongoCollection<HistoricalAnomalyRecord> _historicalAnomalies;
+
+        private static readonly ConcurrentDictionary<int, Lazy<Task<CachedFlightData>>> FlightCache =
+            new ConcurrentDictionary<int, Lazy<Task<CachedFlightData>>>();
+
 
         public FlightTelemetryMongoProxy(IOptions<MongoSettings> settings)
         {
@@ -136,6 +142,55 @@ namespace Analyzer_Service.Services.Mongo
                 update,
                 new UpdateOptions { IsUpsert = true }
             );
+        }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        public Task<CachedFlightData> GetOrLoadFlightCacheAsync(int masterIndex)
+        {
+            Lazy<Task<CachedFlightData>> loader = FlightCache.GetOrAdd(
+                masterIndex,
+                _ => new Lazy<Task<CachedFlightData>>(() => LoadFlightCacheAsync(masterIndex)));
+
+            return loader.Value;
+        }
+
+        private async Task<CachedFlightData> LoadFlightCacheAsync(int masterIndex)
+        {
+            IAsyncCursor<TelemetrySensorFields> cursor =
+                await GetCursorFromFieldsAsync(masterIndex);
+
+            Dictionary<string, List<double>> fieldValues =
+                new Dictionary<string, List<double>>();
+
+            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
+            {
+                foreach (KeyValuePair<string, double> pair in record.Fields)
+                {
+                    if (!fieldValues.TryGetValue(pair.Key, out List<double> values))
+                    {
+                        values = new List<double>();
+                        fieldValues[pair.Key] = values;
+                    }
+
+                    values.Add(pair.Value);
+                }
+            }
+
+            return new CachedFlightData(fieldValues);
         }
 
 

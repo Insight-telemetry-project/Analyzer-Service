@@ -1,4 +1,5 @@
 using Analyzer_Service.Models.Configuration;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using Microsoft.Extensions.Options;
@@ -15,6 +16,8 @@ namespace Analyzer_Service.Models.Interface.Mongo
         public Task StoreAnomalyAsync(int masterIndex, string sensorName, double anomalyTime);
         public Task<IAsyncCursor<HistoricalAnomalyRecord>> GetHistoricalCandidatesAsync(string parameterName, string label, int excludeMasterIndex);
         public Task StoreHistoricalAnomalyAsync(HistoricalAnomalyRecord record);
+
+        Task<CachedFlightData> GetOrLoadFlightCacheAsync(int masterIndex);
 
     }
 }

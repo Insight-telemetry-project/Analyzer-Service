@@ -52,6 +52,35 @@ namespace Analyzer_Service.Services.Mongo
         }
 
 
+        public async Task<List<double>> GetParameterValuesAsync(int masterIndex, string parameterName)
+        {
+            CachedFlightData cached = await _telemetryMongo.GetOrLoadFlightCacheAsync(masterIndex);
+
+            if (!cached.FieldValues.TryGetValue(parameterName, out List<double> values))
+            {
+                return new List<double>();
+            }
+
+            return values;
+        }
+
+
+
+
+
+
+        public async Task<List<double>> GetParameterValuesCopyAsync(int masterIndex, string parameterName)
+        {
+            CachedFlightData cached = await _telemetryMongo.GetOrLoadFlightCacheAsync(masterIndex);
+
+            if (!cached.FieldValues.TryGetValue(parameterName, out List<double> values))
+            {
+                return new List<double>();
+            }
+
+            return new List<double>(values);
+        }
+
 
     }
 }
