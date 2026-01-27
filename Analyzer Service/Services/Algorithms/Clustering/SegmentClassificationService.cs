@@ -1,4 +1,8 @@
-﻿using Analyzer_Service.Models.Constant;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Enums;
 using Analyzer_Service.Models.Interface.Algorithms;
@@ -8,10 +12,6 @@ using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Schema;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace Analyzer_Service.Services
 {
@@ -54,19 +54,20 @@ namespace Analyzer_Service.Services
             this.tuningSettingsFactory = tuningSettingsFactory;
         }
 
-        private async Task<List<double>> LoadSignalValuesAsync(int masterIndex, string fieldName)
+        private async Task<double[]> LoadSignalValuesAsync(int masterIndex, string fieldName)
         {
-            List<double> signalValues = await flightDataPreparer.GetParameterValuesCopyAsync(masterIndex, fieldName);
-            return signalValues;
+            List<double> signalValuesList = await flightDataPreparer.GetParameterValuesCopyAsync(masterIndex, fieldName);
+            double[] signalValuesArray = signalValuesList.ToArray();
+            return signalValuesArray;
         }
 
-        private static List<double> BuildSyntheticTimeSeriesValues(int sampleCount)
+        private static double[] BuildSyntheticTimeSeriesValues(int sampleCount)
         {
-            List<double> timeSeriesValues = new List<double>(sampleCount);
+            double[] timeSeriesValues = new double[sampleCount];
 
             for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
             {
-                timeSeriesValues.Add(sampleIndex);
+                timeSeriesValues[sampleIndex] = sampleIndex;
             }
 
             return timeSeriesValues;
@@ -99,22 +100,21 @@ namespace Analyzer_Service.Services
             return segments;
         }
 
-        private List<double> PreprocessSignal(List<double> signalValues)
+        private double[] PreprocessSignal(double[] signalValues)
         {
             if (!IsNoisy)
             {
                 double[] filteredSignal =
                     signalProcessingUtility.ApplyHampel(
-                        signalValues.ToArray(),
+                        signalValues,
                         ConstantAlgorithm.HAMPEL_WINDOW,
                         ConstantAlgorithm.HAMPEL_SIGMA);
 
-                List<double> normalizedSignal = signalProcessingUtility.ApplyZScore(filteredSignal);
+                double[] normalizedSignal = signalProcessingUtility.ApplyZScore(filteredSignal);
                 return normalizedSignal;
             }
 
-            double[] signalArray = signalValues.ToArray();
-            List<double> normalizedSignalValues = signalProcessingUtility.ApplyZScore(signalArray);
+            double[] normalizedSignalValues = signalProcessingUtility.ApplyZScore(signalValues);
             return normalizedSignalValues;
         }
 
@@ -125,9 +125,8 @@ namespace Analyzer_Service.Services
             int endIndex,
             flightStatus status)
         {
-            List<double> rawSignalValues = await LoadSignalValuesAsync(masterIndex, fieldName);
-
-            List<double> timeSeriesValues = BuildSyntheticTimeSeriesValues(rawSignalValues.Count);
+            double[] rawSignalValues = await LoadSignalValuesAsync(masterIndex, fieldName);
+            double[] timeSeriesValues = BuildSyntheticTimeSeriesValues(rawSignalValues.Length);
 
             bool isNoisyFlight = DetermineIsNoisyFlight(rawSignalValues);
             IsNoisy = isNoisyFlight;
@@ -135,9 +134,9 @@ namespace Analyzer_Service.Services
             signalNoiseTuning.ApplyHighNoiseConfiguration();
 
             List<SegmentBoundary> detectedSegments =
-                await DetectSegments(masterIndex, fieldName, rawSignalValues.Count, status);
+                await DetectSegments(masterIndex, fieldName, rawSignalValues.Length, status);
 
-            List<double> processedSignalValues = PreprocessSignal(rawSignalValues);
+            double[] processedSignalValues = PreprocessSignal(rawSignalValues);
 
             List<SegmentClassificationResult> segmentClassificationResults =
                 BuildMergedSegmentResults(timeSeriesValues, processedSignalValues, detectedSegments);
@@ -151,11 +150,10 @@ namespace Analyzer_Service.Services
                 BuildFeatureList(timeSeriesValues, processedSignalValues, mergedSegmentBoundaries);
 
             AttachFeaturesToResults(segmentClassificationResults, featureList);
-            AttachHashVectors(timeSeriesValues, processedSignalValues, segmentClassificationResults);
+            AttachHashVectors(processedSignalValues, segmentClassificationResults);
 
             List<int> detectedAnomalySegmentIndexes =
                 DetectAnomalies(
-                    timeSeriesValues,
                     processedSignalValues,
                     mergedSegmentBoundaries,
                     segmentClassificationResults,
@@ -190,8 +188,7 @@ namespace Analyzer_Service.Services
         }
 
         private List<int> DetectAnomalies(
-            List<double> timeSeriesValues,
-            List<double> processedSignalValues,
+            double[] processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<SegmentClassificationResult> classificationResults,
             List<SegmentFeatures> featureList,
@@ -238,7 +235,7 @@ namespace Analyzer_Service.Services
         }
 
         private List<int> ComputeRepresentativeSamples(
-            List<double> processedSignalValues,
+            double[] processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<SegmentClassificationResult> classificationResults,
             List<int> selectedSegmentIndexes)
@@ -264,13 +261,13 @@ namespace Analyzer_Service.Services
         }
 
         private List<SegmentClassificationResult> BuildMergedSegmentResults(
-            List<double> timeSeriesValues,
-            List<double> processedSignalValues,
+            double[] timeSeriesValues,
+            double[] processedSignalValues,
             List<SegmentBoundary> detectedSegments)
         {
             List<double> meanValues =
                 segmentLogicUtility.ComputeMeansPerSegment(processedSignalValues, detectedSegments);
-            
+
             List<SegmentClassificationResult> classificationResults =
                 segmentLogicUtility.ClassifySegments(
                     timeSeriesValues,
@@ -282,8 +279,8 @@ namespace Analyzer_Service.Services
         }
 
         private List<SegmentFeatures> BuildFeatureList(
-            List<double> timeSeriesValues,
-            List<double> processedSignalValues,
+            double[] timeSeriesValues,
+            double[] processedSignalValues,
             List<SegmentBoundary> segmentBoundaries)
         {
             List<double> meanValues =
@@ -310,16 +307,14 @@ namespace Analyzer_Service.Services
         }
 
         private void AttachHashVectors(
-            List<double> timeSeriesValues,
-            List<double> processedSignalValues,
+            double[] processedSignalValues,
             List<SegmentClassificationResult> results)
         {
             for (int resultIndex = 0; resultIndex < results.Count; resultIndex++)
             {
                 SegmentBoundary segmentBoundary = results[resultIndex].Segment;
 
-                string hashString =patternHashingUtility.ComputeHash(processedSignalValues,segmentBoundary);
-
+                string hashString = patternHashingUtility.ComputeHash(processedSignalValues, segmentBoundary);
 
                 double[] hashVector =
                     hashString
@@ -334,8 +329,8 @@ namespace Analyzer_Service.Services
         private async Task StoreAnomaliesAsync(
             int masterIndex,
             string fieldName,
-            List<double> timeSeriesValues,
-            List<double> processedSignalValues,
+            double[] timeSeriesValues,
+            double[] processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<SegmentClassificationResult> classificationResults,
             List<int> anomalySegmentIndexes,
@@ -360,8 +355,8 @@ namespace Analyzer_Service.Services
         private async Task StoreSingleAnomalyAsync(
             int masterIndex,
             string fieldName,
-            List<double> timeSeriesValues,
-            List<double> processedSignalValues,
+            double[] timeSeriesValues,
+            double[] processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<SegmentClassificationResult> classificationResults,
             List<SegmentFeatures> featureList,
@@ -385,7 +380,7 @@ namespace Analyzer_Service.Services
 
             SegmentFeatures segmentFeatures = featureList[segmentIndex];
 
-            string patternHash =patternHashingUtility.ComputeHash(processedSignalValues,segmentBoundary);
+            string patternHash = patternHashingUtility.ComputeHash(processedSignalValues, segmentBoundary);
 
             HistoricalAnomalyRecord record = new HistoricalAnomalyRecord
             {
@@ -402,20 +397,25 @@ namespace Analyzer_Service.Services
             await flightTelemetryMongoProxy.StoreHistoricalAnomalyAsync(record);
         }
 
-        private bool DetermineIsNoisyFlight(List<double> signalValues)
+        private bool DetermineIsNoisyFlight(double[] signalValues)
         {
-            List<double> diffs = new List<double>(signalValues.Count - 1);
+            if (signalValues.Length < 2)
+            {
+                return false;
+            }
 
-            for (int sampleIndex = 1; sampleIndex < signalValues.Count; sampleIndex++)
+            double[] diffs = new double[signalValues.Length - 1];
+
+            for (int sampleIndex = 1; sampleIndex < signalValues.Length; sampleIndex++)
             {
                 double currentValue = signalValues[sampleIndex];
                 double previousValue = signalValues[sampleIndex - 1];
-                diffs.Add(Math.Abs(currentValue - previousValue));
+                diffs[sampleIndex - 1] = Math.Abs(currentValue - previousValue);
             }
 
-            diffs.Sort();
+            Array.Sort(diffs);
 
-            int count = diffs.Count;
+            int count = diffs.Length;
 
             double medianDiff = diffs[count / 2];
             double safeMedian = Math.Max(medianDiff, ConstantAlgorithm.NOT_DIVIDE_IN_ZERO);

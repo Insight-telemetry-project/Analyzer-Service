@@ -2,11 +2,10 @@
 {
     public interface ISignalProcessingUtility
     {
-        public double[] ApplyHampel(double[] inputValues, int windowSize, double sigma);
+        double[] ApplyHampel(double[] inputValues, int windowSize, double sigma);
 
-        public List<double> ApplyZScore(double[] values);
+        double[] ApplyZScore(double[] values);
 
-        public double ComputeMedian(double[] values);
-
+        double ComputeMedian(double[] values);
     }
 }

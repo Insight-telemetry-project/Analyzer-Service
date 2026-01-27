@@ -5,13 +5,17 @@ namespace Analyzer_Service.Models.Interface.Algorithms
 {
     public interface IFeatureExtractionUtility
     {
-        public List<SegmentBoundary> BuildSegmentsFromPoints(List<int> boundaries,int sampleCount);
+        List<SegmentBoundary> BuildSegmentsFromPoints(List<int> boundaries, int sampleCount);
 
-        SegmentFeatures ExtractFeatures(List<double> timeSeries, List<double> processedSignal, SegmentBoundary segment, double previousMean, double nextMean);
+        SegmentFeatures ExtractFeatures(
+            double[] timeSeriesValues,
+            double[] processedSignalValues,
+            SegmentBoundary segmentBoundary,
+            double previousMean,
+            double nextMean);
 
+        int CountPeaks(double[] signalValues, int startIndex, int endIndex);
 
-        public int CountPeaks(List<double> signal,int startIndex,int endIndex);
-
-        public int CountTroughs(List<double> signal,int startIndex,int endIndex);
+        int CountTroughs(double[] signalValues, int startIndex, int endIndex);
     }
 }

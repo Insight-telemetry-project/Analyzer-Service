@@ -1,6 +1,6 @@
-﻿using Analyzer_Service.Models.Constant;
-using Analyzer_Service.Models.Interface.Algorithms.Pelt;
+﻿using System.Collections.Generic;
 using Analyzer_Service.Models.Interface.Algorithms;
+using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 
 namespace Analyzer_Service.Services.Algorithms.Pelt
 {
@@ -23,10 +23,10 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             double[] filteredValues =
                 signalProcessingUtility.ApplyHampel(initialValues, hampelWindowSize, hampelSigmaThreshold);
 
-            List<double> normalizedValues =
+            double[] normalizedValues =
                 signalProcessingUtility.ApplyZScore(filteredValues);
 
-            return normalizedValues.ToArray();
+            return normalizedValues;
         }
     }
 }

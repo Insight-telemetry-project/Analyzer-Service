@@ -1,4 +1,6 @@
-﻿using Analyzer_Service.Models.Dto;
+﻿using System.Collections.Generic;
+using System.Linq;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
 
@@ -20,9 +22,7 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
             this.featureExtractionUtility = featureExtractionUtility;
         }
 
-        public List<double> ComputeMeansPerSegment(
-            List<double> signalValues,
-            List<SegmentBoundary> segmentBoundaries)
+        public List<double> ComputeMeansPerSegment(double[] signalValues, List<SegmentBoundary> segmentBoundaries)
         {
             List<double> meanValuesPerSegment = new List<double>(segmentBoundaries.Count);
 
@@ -42,13 +42,12 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
         }
 
         public List<SegmentClassificationResult> ClassifySegments(
-            List<double> timeSeriesValues,
-            List<double> signalValues,
+            double[] timeSeriesValues,
+            double[] signalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<double> meanValuesPerSegment)
         {
-            List<SegmentClassificationResult> classificationResults =
-                new List<SegmentClassificationResult>();
+            List<SegmentClassificationResult> classificationResults = new List<SegmentClassificationResult>();
 
             RandomForestModel model = modelProvider.GetModel();
 
@@ -72,23 +71,18 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
                         previousMeanValue,
                         nextMeanValue);
 
-                string predictedLabel =
-                    randomForestOperations.PredictLabel(model, features);
+                string predictedLabel = randomForestOperations.PredictLabel(model, features);
 
-                SegmentClassificationResult result =
-                    new SegmentClassificationResult(segmentBoundary, predictedLabel);
-
+                SegmentClassificationResult result = new SegmentClassificationResult(segmentBoundary, predictedLabel);
                 classificationResults.Add(result);
             }
 
             return MergeSegments(classificationResults);
         }
 
-        public List<SegmentClassificationResult> MergeSegments(
-            List<SegmentClassificationResult> classificationResults)
+        public List<SegmentClassificationResult> MergeSegments(List<SegmentClassificationResult> classificationResults)
         {
-            List<SegmentClassificationResult> mergedResults =
-                new List<SegmentClassificationResult>();
+            List<SegmentClassificationResult> mergedResults = new List<SegmentClassificationResult>();
 
             SegmentClassificationResult currentSegment = classificationResults[0];
 
@@ -97,17 +91,16 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
                 SegmentClassificationResult nextSegment = classificationResults[index];
 
                 bool labelsMatch = currentSegment.Label == nextSegment.Label;
-                bool segmentsAreContinuous =
-                    currentSegment.Segment.EndIndex == nextSegment.Segment.StartIndex;
+                bool segmentsAreContinuous = currentSegment.Segment.EndIndex == nextSegment.Segment.StartIndex;
 
                 if (labelsMatch && segmentsAreContinuous)
                 {
-                    currentSegment =
-                        new SegmentClassificationResult(
-                            new SegmentBoundary(
-                                currentSegment.Segment.StartIndex,
-                                nextSegment.Segment.EndIndex),
-                            currentSegment.Label);
+                    SegmentBoundary mergedBoundary =
+                        new SegmentBoundary(
+                            currentSegment.Segment.StartIndex,
+                            nextSegment.Segment.EndIndex);
+
+                    currentSegment = new SegmentClassificationResult(mergedBoundary, currentSegment.Label);
                 }
                 else
                 {
@@ -121,13 +114,12 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
         }
 
         public List<SegmentFeatures> BuildFeatureList(
-    List<double> timeSeriesValues,
-    List<double> signalValues,
-    List<SegmentBoundary> segmentBoundaries,
-    List<double> meanValuesPerSegment)
+            double[] timeSeriesValues,
+            double[] signalValues,
+            List<SegmentBoundary> segmentBoundaries,
+            List<double> meanValuesPerSegment)
         {
-            List<SegmentFeatures> featureList =
-                new List<SegmentFeatures>(segmentBoundaries.Count);
+            List<SegmentFeatures> featureList = new List<SegmentFeatures>(segmentBoundaries.Count);
 
             for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
             {
@@ -154,6 +146,5 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 
             return featureList;
         }
-
     }
 }

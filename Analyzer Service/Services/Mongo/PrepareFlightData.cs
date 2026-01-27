@@ -66,9 +66,6 @@ namespace Analyzer_Service.Services.Mongo
 
 
 
-
-
-
         public async Task<List<double>> GetParameterValuesCopyAsync(int masterIndex, string parameterName)
         {
             CachedFlightData cached = await _telemetryMongo.GetOrLoadFlightCacheAsync(masterIndex);

@@ -4,7 +4,6 @@ namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
 {
     public interface IPatternHashingUtility
     {
-        string ComputeHash(List<double> processedSignal, SegmentBoundary segmentBoundary);
-
+        string ComputeHash(double[] processedSignal, SegmentBoundary segmentBoundary);
     }
 }

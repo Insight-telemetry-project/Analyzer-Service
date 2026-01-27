@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
@@ -17,7 +16,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             this.signalProcessingUtility = signalProcessingUtility;
         }
 
-        public string ComputeHash(List<double> processedSignal, SegmentBoundary segmentBoundary)
+        public string ComputeHash(double[] processedSignal, SegmentBoundary segmentBoundary)
         {
             int segmentLength = segmentBoundary.EndIndex - segmentBoundary.StartIndex;
 
@@ -37,9 +36,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             return BuildHashFromResampledValues(resampledValues);
         }
 
-        private static string BuildShortSegmentHash(
-            List<double> processedSignal,
-            SegmentBoundary segmentBoundary)
+        private static string BuildShortSegmentHash(double[] processedSignal, SegmentBoundary segmentBoundary)
         {
             double repeatedValue = processedSignal[segmentBoundary.StartIndex];
 
@@ -62,9 +59,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             return normalizedTimeArray;
         }
 
-        private static double[] BuildSegmentValueArray(
-            List<double> processedSignal,
-            SegmentBoundary segmentBoundary)
+        private static double[] BuildSegmentValueArray(double[] processedSignal, SegmentBoundary segmentBoundary)
         {
             int segmentLength = segmentBoundary.EndIndex - segmentBoundary.StartIndex;
             double[] segmentValueArray = new double[segmentLength];
@@ -92,7 +87,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 
         private string BuildHashFromResampledValues(double[] resampledValues)
         {
-            List<double> zScoreValues = signalProcessingUtility.ApplyZScore(resampledValues);
+            double[] zScoreValues = signalProcessingUtility.ApplyZScore(resampledValues);
 
             double[] roundedZScores =
                 zScoreValues

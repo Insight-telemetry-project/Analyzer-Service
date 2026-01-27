@@ -1,4 +1,6 @@
-﻿using Analyzer_Service.Models.Dto;
+﻿using System;
+using System.Collections.Generic;
+using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms;
 
 namespace Analyzer_Service.Services.Algorithms
@@ -12,84 +14,96 @@ namespace Analyzer_Service.Services.Algorithms
             this.signalProcessingUtility = signalProcessingUtility;
         }
 
-        public List<SegmentBoundary> BuildSegmentsFromPoints(List<int> boundaries,int sampleCount)
+        public List<SegmentBoundary> BuildSegmentsFromPoints(List<int> boundaries, int sampleCount)
         {
             List<SegmentBoundary> segments = new List<SegmentBoundary>();
 
-            int currentStart = 0;
+            int currentStartIndex = 0;
 
-            for (int index = 0; index < boundaries.Count; index++)
+            for (int boundaryIndex = 0; boundaryIndex < boundaries.Count; boundaryIndex++)
             {
-                int boundary = boundaries[index];
-                int endExclusive = boundary;
+                int endExclusiveIndex = boundaries[boundaryIndex];
 
-                if (endExclusive > currentStart + 1)
+                if (endExclusiveIndex > currentStartIndex + 1)
                 {
-                    SegmentBoundary segment = new SegmentBoundary(currentStart, endExclusive);
-                    segments.Add(segment);
+                    SegmentBoundary segmentBoundary = new SegmentBoundary(currentStartIndex, endExclusiveIndex);
+                    segments.Add(segmentBoundary);
                 }
 
-                currentStart = endExclusive;
+                currentStartIndex = endExclusiveIndex;
             }
 
             return segments;
         }
 
-
-        public SegmentFeatures ExtractFeatures(List<double> timeSeries,List<double> processedSignal,SegmentBoundary segment,double previousMean,double nextMean)
+        public SegmentFeatures ExtractFeatures(
+            double[] timeSeriesValues,
+            double[] processedSignalValues,
+            SegmentBoundary segmentBoundary,
+            double previousMean,
+            double nextMean)
         {
-            int startIndex = segment.StartIndex;
-            int endIndex = segment.EndIndex;
+            int startIndex = segmentBoundary.StartIndex;
+            int endIndex = segmentBoundary.EndIndex;
 
-            int length = endIndex - startIndex;
+            int segmentLength = endIndex - startIndex;
 
-            double startTime = timeSeries[startIndex];
-            double endTime = timeSeries[endIndex - 1];
-            double duration = endTime - startTime;
+            double startTime = timeSeriesValues[startIndex];
+            double endTime = timeSeriesValues[endIndex - 1];
+            double durationSeconds = endTime - startTime;
 
             double minValue = double.PositiveInfinity;
             double maxValue = double.NegativeInfinity;
             double sum = 0.0;
             double energySum = 0.0;
 
-            for (int index = startIndex; index < endIndex; index++)
+            for (int sampleIndex = startIndex; sampleIndex < endIndex; sampleIndex++)
             {
-                double value = processedSignal[index];
+                double value = processedSignalValues[sampleIndex];
 
                 sum += value;
                 energySum += value * value;
 
-                if (value < minValue) minValue = value;
-                if (value > maxValue) maxValue = value;
+                if (value < minValue)
+                {
+                    minValue = value;
+                }
+
+                if (value > maxValue)
+                {
+                    maxValue = value;
+                }
             }
 
-            double mean = sum / length;
+            double mean = sum / segmentLength;
             double range = maxValue - minValue;
-            double energy = energySum / length;
+            double energy = energySum / segmentLength;
 
             double varianceSum = 0.0;
-            for (int index = startIndex; index < endIndex; index++)
+            for (int sampleIndex = startIndex; sampleIndex < endIndex; sampleIndex++)
             {
-                double delta = processedSignal[index] - mean;
+                double delta = processedSignalValues[sampleIndex] - mean;
                 varianceSum += delta * delta;
             }
-            double std = Math.Sqrt(varianceSum / length);
 
-            double firstValue = processedSignal[startIndex];
-            double lastValue = processedSignal[endIndex - 1];
-            double slope = duration > 0.0
-                ? (lastValue - firstValue) / duration
+            double std = Math.Sqrt(varianceSum / segmentLength);
+
+            double firstValue = processedSignalValues[startIndex];
+            double lastValue = processedSignalValues[endIndex - 1];
+
+            double slope = durationSeconds > 0.0
+                ? (lastValue - firstValue) / durationSeconds
                 : 0.0;
 
-            int peakCount = CountPeaks(processedSignal, startIndex, endIndex);
-            int troughCount = CountTroughs(processedSignal, startIndex, endIndex);
+            int peakCount = CountPeaks(processedSignalValues, startIndex, endIndex);
+            int troughCount = CountTroughs(processedSignalValues, startIndex, endIndex);
 
-            double validatedPrev = double.IsNaN(previousMean) ? 0.0 : previousMean;
-            double validatedNext = double.IsNaN(nextMean) ? 0.0 : nextMean;
+            double safePreviousMean = double.IsNaN(previousMean) ? 0.0 : previousMean;
+            double safeNextMean = double.IsNaN(nextMean) ? 0.0 : nextMean;
 
-            return new SegmentFeatures
+            SegmentFeatures segmentFeatures = new SegmentFeatures
             {
-                DurationSeconds = duration,
+                DurationSeconds = durationSeconds,
                 MeanZ = mean,
                 StdZ = std,
                 MinZ = minValue,
@@ -99,14 +113,14 @@ namespace Analyzer_Service.Services.Algorithms
                 Slope = slope,
                 PeakCount = peakCount,
                 TroughCount = troughCount,
-                MeanPrev = validatedPrev,
-                MeanNext = validatedNext
+                MeanPrev = safePreviousMean,
+                MeanNext = safeNextMean
             };
 
+            return segmentFeatures;
         }
 
-
-        public int CountPeaks(List<double> signal, int startIndex, int endIndex)
+        public int CountPeaks(double[] signalValues, int startIndex, int endIndex)
         {
             int length = endIndex - startIndex;
             int minimumDistance = Math.Max((int)Math.Floor(0.05 * length), 1);
@@ -116,12 +130,11 @@ namespace Analyzer_Service.Services.Algorithms
 
             for (int index = startIndex + 1; index < endIndex - 1; index++)
             {
-                double prev = signal[index - 1];
-                double current = signal[index];
-                double next = signal[index + 1];
+                double prev = signalValues[index - 1];
+                double current = signalValues[index];
+                double next = signalValues[index + 1];
 
                 double prominence = Math.Abs(current - 0.5 * (prev + next));
-
                 bool isPeak = current > prev && current > next && prominence >= 0.5;
 
                 if (isPeak && (index - lastIndex) >= minimumDistance)
@@ -134,7 +147,7 @@ namespace Analyzer_Service.Services.Algorithms
             return count;
         }
 
-        public int CountTroughs(List<double> signal, int startIndex, int endIndex)
+        public int CountTroughs(double[] signalValues, int startIndex, int endIndex)
         {
             int length = endIndex - startIndex;
             int minimumDistance = Math.Max((int)Math.Floor(0.05 * length), 1);
@@ -144,13 +157,12 @@ namespace Analyzer_Service.Services.Algorithms
 
             for (int index = startIndex + 1; index < endIndex - 1; index++)
             {
-                double prev = signal[index - 1];
-                double curr = signal[index];
-                double next = signal[index + 1];
+                double prev = signalValues[index - 1];
+                double current = signalValues[index];
+                double next = signalValues[index + 1];
 
-                double prominence = Math.Abs(curr - 0.5 * (prev + next));
-
-                bool isTrough = curr < prev && curr < next && prominence >= 0.5;
+                double prominence = Math.Abs(current - 0.5 * (prev + next));
+                bool isTrough = current < prev && current < next && prominence >= 0.5;
 
                 if (isTrough && (index - lastIndex) >= minimumDistance)
                 {

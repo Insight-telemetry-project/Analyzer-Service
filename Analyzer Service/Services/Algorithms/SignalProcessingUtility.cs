@@ -1,12 +1,11 @@
-﻿using Analyzer_Service.Models.Constant;
+﻿using System;
+using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Interface.Algorithms;
-using Microsoft.Extensions.Options;
 
 namespace Analyzer_Service.Services.Algorithms
 {
     public class SignalProcessingUtility : ISignalProcessingUtility
     {
-
         public double[] ApplyHampel(double[] inputValues, int windowSize, double sigma)
         {
             int valueCount = inputValues.Length;
@@ -53,7 +52,7 @@ namespace Analyzer_Service.Services.Algorithms
             return outputValues;
         }
 
-        public List<double> ApplyZScore(double[] values)
+        public double[] ApplyZScore(double[] values)
         {
             int count = values.Length;
 
@@ -84,9 +83,8 @@ namespace Analyzer_Service.Services.Algorithms
                 output[index] = (values[index] - mean) / std;
             }
 
-            return output.ToList();
+            return output;
         }
-
 
         public double ComputeMedian(double[] values)
         {
@@ -103,6 +101,5 @@ namespace Analyzer_Service.Services.Algorithms
 
             return 0.5 * (sorted[midIndex - 1] + sorted[midIndex]);
         }
-
     }
 }

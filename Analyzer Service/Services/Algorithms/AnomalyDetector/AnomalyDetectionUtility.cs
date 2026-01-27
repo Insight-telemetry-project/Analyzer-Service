@@ -1,4 +1,7 @@
-﻿using Analyzer_Service.Models.Constant;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Enums;
 using Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector;
@@ -16,19 +19,17 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
         {
             SegmentLabel.PatternOK,
             SegmentLabel.Steady,
-            SegmentLabel.Neutral,
+            SegmentLabel.Neutral
         };
 
-        public AnomalyDetectionUtility(
-            IPatternHashingUtility patternHashingUtility,
-            ITuningSettingsFactory tuningSettingsFactory)
+        public AnomalyDetectionUtility(IPatternHashingUtility patternHashingUtility, ITuningSettingsFactory tuningSettingsFactory)
         {
             this.patternHashingUtility = patternHashingUtility;
             this.tuningSettingsFactory = tuningSettingsFactory;
         }
 
         public List<int> DetectAnomalies(
-            List<double> processedSignalValues,
+            double[] processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<string> segmentLabelList,
             List<SegmentFeatures> featureValueList,
@@ -41,11 +42,13 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
                     .GroupBy(label => label)
                     .ToDictionary(group => group.Key, group => group.Count());
 
+            double[] timeSeriesValues = BuildSyntheticTimeSeriesValues(processedSignalValues.Length);
+
             double totalSegmentTime =
-                CalculateTotalSegmentTime(segmentBoundaries, totalSegmentCount);
+                CalculateTotalSegmentTime(timeSeriesValues, segmentBoundaries, totalSegmentCount);
 
             Dictionary<string, double> labelDurationTotals =
-                GetLabelDurationTotals(segmentBoundaries, segmentLabelList, totalSegmentCount);
+                GetLabelDurationTotals(timeSeriesValues, segmentBoundaries, segmentLabelList, totalSegmentCount);
 
             HashSet<SegmentLabel> rareSegmentLabels =
                 GetRareLabels(labelOccurrences, labelDurationTotals, totalSegmentTime, status);
@@ -62,23 +65,35 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
                     patternSupportArray,
                     status);
 
-            return ApplyPostFiltering(segmentBoundaries, candidateSegmentIndexes, status);
+            return ApplyPostFiltering(timeSeriesValues, segmentBoundaries, candidateSegmentIndexes, status);
         }
 
-        private static double CalculateTotalSegmentTime(
+        private static double[] BuildSyntheticTimeSeriesValues(int sampleCount)
+        {
+            double[] timeSeriesValues = new double[sampleCount];
+
+            for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
+            {
+                timeSeriesValues[sampleIndex] = sampleIndex;
+            }
+
+            return timeSeriesValues;
+        }
+
+        private double CalculateTotalSegmentTime(
+            double[] timeSeriesValues,
             List<SegmentBoundary> segmentBoundaries,
             int totalSegmentCount)
         {
-            SegmentBoundary firstSegment = segmentBoundaries[0];
-            SegmentBoundary lastSegment = segmentBoundaries[totalSegmentCount - 1];
+            double totalTime =
+                timeSeriesValues[segmentBoundaries[totalSegmentCount - 1].EndIndex - 1] -
+                timeSeriesValues[segmentBoundaries[0].StartIndex];
 
-            double startTime = firstSegment.StartIndex;
-            double endTime = lastSegment.EndIndex - 1;
-
-            return endTime - startTime;
+            return totalTime;
         }
 
-        private static Dictionary<string, double> GetLabelDurationTotals(
+        private Dictionary<string, double> GetLabelDurationTotals(
+            double[] timeSeriesValues,
             List<SegmentBoundary> segmentBoundaries,
             List<string> segmentLabelList,
             int totalSegmentCount)
@@ -89,8 +104,9 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             {
                 SegmentBoundary segmentBoundary = segmentBoundaries[segmentIndex];
 
-                double segmentDuration =
-                    (segmentBoundary.EndIndex - 1) - segmentBoundary.StartIndex;
+                double segmentDurationSeconds =
+                    timeSeriesValues[segmentBoundary.EndIndex - 1] -
+                    timeSeriesValues[segmentBoundary.StartIndex];
 
                 string segmentLabelRaw = segmentLabelList[segmentIndex];
 
@@ -99,7 +115,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
                     durationTotals[segmentLabelRaw] = 0.0;
                 }
 
-                durationTotals[segmentLabelRaw] += segmentDuration;
+                durationTotals[segmentLabelRaw] += segmentDurationSeconds;
             }
 
             return durationTotals;
@@ -117,7 +133,8 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 
             foreach (KeyValuePair<string, int> labelEntry in labelOccurrences)
             {
-                bool parsed = Enum.TryParse(labelEntry.Key, out SegmentLabel segmentLabelEnum);
+                SegmentLabel segmentLabelEnum;
+                bool parsed = Enum.TryParse(labelEntry.Key, out segmentLabelEnum);
                 if (!parsed)
                 {
                     continue;
@@ -142,9 +159,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             return rareLabels;
         }
 
-        private int[] ComputePatternSupportArray(
-            List<double> processedSignalValues,
-            List<SegmentBoundary> segmentBoundaries)
+        private int[] ComputePatternSupportArray(double[] processedSignalValues, List<SegmentBoundary> segmentBoundaries)
         {
             int totalSegmentCount = segmentBoundaries.Count;
 
@@ -153,10 +168,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
             for (int segmentIndex = 0; segmentIndex < totalSegmentCount; segmentIndex++)
             {
                 SegmentBoundary segmentBoundary = segmentBoundaries[segmentIndex];
-
-                string segmentPatternHash =
-                    patternHashingUtility.ComputeHash(processedSignalValues, segmentBoundary);
-
+                string segmentPatternHash = patternHashingUtility.ComputeHash(processedSignalValues, segmentBoundary);
                 patternHashList.Add(segmentPatternHash);
             }
 
@@ -188,14 +200,15 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 
             for (int segmentIndex = 0; segmentIndex < totalSegmentCount; segmentIndex++)
             {
-                Enum.TryParse(segmentLabelList[segmentIndex], out SegmentLabel segmentLabelEnum);
+                SegmentLabel segmentLabelEnum;
+                Enum.TryParse(segmentLabelList[segmentIndex], out segmentLabelEnum);
 
                 SegmentFeatures featureValues = featureValueList[segmentIndex];
 
-                double duration = featureValues.DurationSeconds;
+                double durationSeconds = featureValues.DurationSeconds;
                 double rangeZ = featureValues.RangeZ;
 
-                bool isDurationValid = duration >= settings.MINIMUM_DURATION_SECONDS;
+                bool isDurationValid = durationSeconds >= settings.MINIMUM_DURATION_SECONDS;
                 bool isRangeValid = rangeZ >= settings.MINIMUM_RANGEZ;
                 bool isPatternSupportValid = patternSupportArray[segmentIndex] < settings.PATTERN_SUPPORT_THRESHOLD;
 
@@ -217,6 +230,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
         }
 
         private List<int> ApplyPostFiltering(
+            double[] timeSeriesValues,
             List<SegmentBoundary> segmentBoundaries,
             List<int> candidateSegmentIndexes,
             flightStatus status)
@@ -231,7 +245,8 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
                 SegmentBoundary segmentBoundary = segmentBoundaries[segmentIndex];
 
                 double midpointTime =
-                    0.5 * (segmentBoundary.StartIndex + (segmentBoundary.EndIndex - 1));
+                    0.5 * (timeSeriesValues[segmentBoundary.StartIndex] +
+                           timeSeriesValues[segmentBoundary.EndIndex - 1]);
 
                 SegmentMidpoint segmentMidpoint = new SegmentMidpoint
                 {

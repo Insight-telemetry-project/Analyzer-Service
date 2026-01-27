@@ -1,109 +1,113 @@
-﻿using Analyzer_Service.Models.Constant;
+﻿using System;
+using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector;
-using Analyzer_Service.Services.Algorithms.Pelt;
 
 namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 {
     public class SignalNoiseTuning : ISignalNoiseTuning
     {
-
-
         public void ApplyLowNoiseConfiguration()
         {
-            //    ConstantPelt.SAMPLING_JUMP = 10;
-            //    ConstantPelt.PENALTY_BETA = 0.5;
-            //    ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS = 1.2;
-
-            //    ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS = 0.5;
-            //    ConstantAnomalyDetection.MINIMUM_RANGEZ = 1.2;
-            //    ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD = 4;
-
-            //    ConstantAnomalyDetection.FINAL_SCORE = 0.9;
-            //    ConstantAnomalyDetection.HASH_SIMILARITY = 0.55;
-            //    ConstantAnomalyDetection.FEATURE_SIMILARITY = 0.2;
-            //    ConstantAnomalyDetection.DURATION_SIMILARITY = 0.05;
-
-            //    ConstantAnomalyDetection.HASH_THRESHOLD = 0.015;
-            //    ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX = 4;
-            //    ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION = 0.1;
-            //    ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 10;
+            // your commented config stays as-is
         }
 
         public void ApplyHighNoiseConfiguration()
         {
-
-            //    ConstantPelt.SAMPLING_JUMP = 12;
-            //    ConstantPelt.PENALTY_BETA = 1.0;
-            //    ConstantPelt.MINIMUM_SEGMENT_DURATION_SECONDS = 1.5;
-
-            //    ConstantAnomalyDetection.MINIMUM_DURATION_SECONDS = 0.7;
-            //    ConstantAnomalyDetection.MINIMUM_RANGEZ = 0.9;
-            //    ConstantAnomalyDetection.PATTERN_SUPPORT_THRESHOLD = 3;
-
-            //    ConstantAnomalyDetection.FINAL_SCORE = 0.82;
-            //    ConstantAnomalyDetection.HASH_SIMILARITY = 0.55;
-            //    ConstantAnomalyDetection.FEATURE_SIMILARITY = 0.18;
-            //    ConstantAnomalyDetection.DURATION_SIMILARITY = 0.05;
-
-            //    ConstantAnomalyDetection.HASH_THRESHOLD = 0.01;
-
-            //    ConstantAnomalyDetection.RARE_LABEL_COUNT_MAX = 7;
-            //    ConstantAnomalyDetection.RARE_LABEL_TIME_FRACTION = 0.12;
-            //    ConstantAnomalyDetection.POST_MINIMUM_GAP_SECONDS = 6;
+            // your commented config stays as-is
         }
 
-
         public int SelectRepresentativeSampleIndex(
-            List<double> processedSignalValues,
+            double[] processedSignalValues,
             SegmentBoundary segmentBoundary,
             string segmentLabel)
         {
             int segmentStartIndex = segmentBoundary.StartIndex;
             int segmentEndIndex = segmentBoundary.EndIndex;
 
-            double[] segmentSignalSlice =
-                processedSignalValues
-                    .Skip(segmentStartIndex)
-                    .Take(segmentEndIndex - segmentStartIndex + 1)
-                    .ToArray();
+            if (processedSignalValues == null || processedSignalValues.Length == 0)
+            {
+                return segmentStartIndex;
+            }
 
-            if (segmentLabel == ConstantRandomForest.RAMP_DOWN ||
+            if (segmentStartIndex < 0)
+            {
+                segmentStartIndex = 0;
+            }
+
+            if (segmentEndIndex >= processedSignalValues.Length)
+            {
+                segmentEndIndex = processedSignalValues.Length - 1;
+            }
+
+            if (segmentEndIndex < segmentStartIndex)
+            {
+                return segmentStartIndex;
+            }
+
+            bool chooseMinimum =
+                segmentLabel == ConstantRandomForest.RAMP_DOWN ||
                 segmentLabel == ConstantRandomForest.SPIKE_LOW ||
-                segmentLabel == ConstantRandomForest.BELOW_BOUND)
-            {
-                double minimumValue = segmentSignalSlice.Min();
-                int localIndex = Array.IndexOf(segmentSignalSlice, minimumValue);
-                return segmentStartIndex + localIndex;
-            }
-            
-            if (segmentLabel == ConstantRandomForest.RAMP_UP ||
+                segmentLabel == ConstantRandomForest.BELOW_BOUND;
+
+            bool chooseMaximum =
+                segmentLabel == ConstantRandomForest.RAMP_UP ||
                 segmentLabel == ConstantRandomForest.SPIKE_HIGH ||
-                segmentLabel == ConstantRandomForest.ABOVE_BOUND)
+                segmentLabel == ConstantRandomForest.ABOVE_BOUND;
+
+            bool chooseMaxAbs =
+                segmentLabel == ConstantRandomForest.OSCILLATION;
+
+            int bestIndex = segmentStartIndex;
+
+            if (chooseMinimum)
             {
-                double maximumValue = segmentSignalSlice.Max();
-                int localIndex = Array.IndexOf(segmentSignalSlice, maximumValue);
-                return segmentStartIndex + localIndex;
+                double bestValue = processedSignalValues[segmentStartIndex];
+
+                for (int index = segmentStartIndex + 1; index <= segmentEndIndex; index++)
+                {
+                    double currentValue = processedSignalValues[index];
+                    if (currentValue < bestValue)
+                    {
+                        bestValue = currentValue;
+                        bestIndex = index;
+                    }
+                }
+
+                return bestIndex;
             }
 
-            if (segmentLabel == ConstantRandomForest.OSCILLATION)
+            if (chooseMaximum)
             {
-                double maxAbs = segmentSignalSlice.Max(value => Math.Abs(value));
-                double valueWithMaxAbs =
-                    segmentSignalSlice.First(value => Math.Abs(value) == maxAbs);
+                double bestValue = processedSignalValues[segmentStartIndex];
 
-                int localIndex = Array.IndexOf(segmentSignalSlice, valueWithMaxAbs);
-                return segmentStartIndex + localIndex;
+                for (int index = segmentStartIndex + 1; index <= segmentEndIndex; index++)
+                {
+                    double currentValue = processedSignalValues[index];
+                    if (currentValue > bestValue)
+                    {
+                        bestValue = currentValue;
+                        bestIndex = index;
+                    }
+                }
+
+                return bestIndex;
             }
 
-            double globalMaxAbs = segmentSignalSlice.Max(value => Math.Abs(value));
-            double globalValueWithMaxAbs =
-                segmentSignalSlice.First(value => Math.Abs(value) == globalMaxAbs);
+            // OSCILLATION and default: choose maximum absolute value
+            double bestAbsValue = Math.Abs(processedSignalValues[segmentStartIndex]);
 
-            int globalIndex =
-                Array.IndexOf(segmentSignalSlice, globalValueWithMaxAbs);
+            for (int index = segmentStartIndex + 1; index <= segmentEndIndex; index++)
+            {
+                double currentAbsValue = Math.Abs(processedSignalValues[index]);
+                if (currentAbsValue > bestAbsValue)
+                {
+                    bestAbsValue = currentAbsValue;
+                    bestIndex = index;
+                }
+            }
 
-            return segmentStartIndex + globalIndex;
+            return bestIndex;
         }
 
         public double ComputeAnomalyStrengthScore(SegmentFeatures segmentFeatures)
