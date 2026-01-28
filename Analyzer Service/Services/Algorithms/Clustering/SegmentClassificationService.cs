@@ -64,17 +64,7 @@ namespace Analyzer_Service.Services
 
 
 
-        private static double[] BuildSyntheticTimeSeriesValues(int sampleCount)
-        {
-            double[] timeSeriesValues = new double[sampleCount];
-
-            for (int sampleIndex = 0; sampleIndex < sampleCount; sampleIndex++)
-            {
-                timeSeriesValues[sampleIndex] = sampleIndex;
-            }
-
-            return timeSeriesValues;
-        }
+        
 
         private async Task<List<SegmentBoundary>> DetectSegments(
             int masterIndex,
@@ -130,7 +120,6 @@ namespace Analyzer_Service.Services
             flightStatus status)
         {
             IReadOnlyList<double> rawSignalValues = await LoadSignalValuesAsync(masterIndex, fieldName);
-            double[] timeSeriesValues = BuildSyntheticTimeSeriesValues(rawSignalValues.Count);
 
             bool isNoisyFlight = DetermineIsNoisyFlight(rawSignalValues);
             IsNoisy = isNoisyFlight;
@@ -143,7 +132,7 @@ namespace Analyzer_Service.Services
             double[] processedSignalValues = PreprocessSignal(rawSignalValues);
 
             List<SegmentClassificationResult> segmentClassificationResults =
-                BuildMergedSegmentResults(timeSeriesValues, processedSignalValues, detectedSegments);
+                BuildMergedSegmentResults(processedSignalValues, detectedSegments);
 
             List<SegmentBoundary> mergedSegmentBoundaries =
                 segmentClassificationResults
@@ -151,7 +140,7 @@ namespace Analyzer_Service.Services
                     .ToList();
 
             List<SegmentFeatures> featureList =
-                BuildFeatureList(timeSeriesValues, processedSignalValues, mergedSegmentBoundaries);
+                BuildFeatureList(processedSignalValues, mergedSegmentBoundaries);
 
             AttachFeaturesToResults(segmentClassificationResults, featureList);
             AttachHashVectors(processedSignalValues, segmentClassificationResults);
@@ -174,7 +163,6 @@ namespace Analyzer_Service.Services
             await StoreAnomaliesAsync(
                 masterIndex,
                 fieldName,
-                timeSeriesValues,
                 processedSignalValues,
                 mergedSegmentBoundaries,
                 segmentClassificationResults,
@@ -199,11 +187,9 @@ namespace Analyzer_Service.Services
             flightStatus status)
         {
             List<int> detectedSegmentIndexes = anomalyDetectionUtility.DetectAnomalies(
-                processedSignalValues,
-                segmentBoundaries,
-                classificationResults.Select(result => result.Label).ToList(),
-                featureList,
-                status);
+                processedSignalValues,segmentBoundaries,classificationResults,
+                featureList,status);
+
 
             if (status == flightStatus.TakeOf_Landing)
             {
@@ -265,16 +251,13 @@ namespace Analyzer_Service.Services
         }
 
         private List<SegmentClassificationResult> BuildMergedSegmentResults(
-            double[] timeSeriesValues,
-            double[] processedSignalValues,
-            List<SegmentBoundary> detectedSegments)
+            double[] processedSignalValues,List<SegmentBoundary> detectedSegments)
         {
             List<double> meanValues =
                 segmentLogicUtility.ComputeMeansPerSegment(processedSignalValues, detectedSegments);
 
             List<SegmentClassificationResult> classificationResults =
                 segmentLogicUtility.ClassifySegments(
-                    timeSeriesValues,
                     processedSignalValues,
                     detectedSegments,
                     meanValues);
@@ -282,23 +265,22 @@ namespace Analyzer_Service.Services
             return classificationResults;
         }
 
+
         private List<SegmentFeatures> BuildFeatureList(
-            double[] timeSeriesValues,
-            double[] processedSignalValues,
-            List<SegmentBoundary> segmentBoundaries)
+            double[] processedSignalValues,List<SegmentBoundary> segmentBoundaries)
         {
             List<double> meanValues =
                 segmentLogicUtility.ComputeMeansPerSegment(processedSignalValues, segmentBoundaries);
 
             List<SegmentFeatures> featureList =
                 segmentLogicUtility.BuildFeatureList(
-                    timeSeriesValues,
                     processedSignalValues,
                     segmentBoundaries,
                     meanValues);
 
             return featureList;
         }
+
 
         private void AttachFeaturesToResults(
             List<SegmentClassificationResult> classificationResults,
@@ -327,7 +309,6 @@ namespace Analyzer_Service.Services
         private async Task StoreAnomaliesAsync(
             int masterIndex,
             string fieldName,
-            double[] timeSeriesValues,
             double[] processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<SegmentClassificationResult> classificationResults,
@@ -341,7 +322,6 @@ namespace Analyzer_Service.Services
                 await StoreSingleAnomalyAsync(
                     masterIndex,
                     fieldName,
-                    timeSeriesValues,
                     processedSignalValues,
                     segmentBoundaries,
                     classificationResults,
@@ -353,7 +333,6 @@ namespace Analyzer_Service.Services
         private async Task StoreSingleAnomalyAsync(
             int masterIndex,
             string fieldName,
-            double[] timeSeriesValues,
             double[] processedSignalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<SegmentClassificationResult> classificationResults,
@@ -369,7 +348,7 @@ namespace Analyzer_Service.Services
                     segmentBoundary,
                     segmentLabel);
 
-            double timestamp = timeSeriesValues[representativeSampleIndex];
+            double timestamp = representativeSampleIndex;
 
             await flightTelemetryMongoProxy.StoreAnomalyAsync(
                 masterIndex,

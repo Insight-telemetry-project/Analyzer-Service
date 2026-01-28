@@ -7,9 +7,9 @@ namespace Analyzer_Service.Models.Interface.Algorithms.AnomalyDetector
     {
         List<int> DetectAnomalies(
             double[] processedSignalValues,
-            List<SegmentBoundary> segmentBoundaries,
-            List<string> segmentLabelList,
-            List<SegmentFeatures> featureValueList,
+            IReadOnlyList<SegmentBoundary> segmentBoundaries,
+            IReadOnlyList<SegmentClassificationResult> classificationResults,
+            IReadOnlyList<SegmentFeatures> featureValueList,
             flightStatus status);
     }
 }

@@ -8,14 +8,13 @@ namespace Analyzer_Service.Models.Interface.Algorithms
         List<SegmentBoundary> BuildSegmentsFromPoints(List<int> boundaries, int sampleCount);
 
         SegmentFeatures ExtractFeatures(
-            double[] timeSeriesValues,
-            double[] processedSignalValues,
+            IReadOnlyList<double> processedSignalValues,
             SegmentBoundary segmentBoundary,
             double previousMean,
             double nextMean);
 
-        int CountPeaks(double[] signalValues, int startIndex, int endIndex);
+        int CountPeaks(IReadOnlyList<double> signalValues, int startIndex, int endIndex);
 
-        int CountTroughs(double[] signalValues, int startIndex, int endIndex);
+        int CountTroughs(IReadOnlyList<double> signalValues, int startIndex, int endIndex);
     }
 }

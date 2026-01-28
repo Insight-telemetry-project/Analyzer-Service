@@ -7,13 +7,6 @@ namespace Analyzer_Service.Services.Algorithms
 {
     public class FeatureExtractionUtility : IFeatureExtractionUtility
     {
-        private readonly ISignalProcessingUtility signalProcessingUtility;
-
-        public FeatureExtractionUtility(ISignalProcessingUtility signalProcessingUtility)
-        {
-            this.signalProcessingUtility = signalProcessingUtility;
-        }
-
         public List<SegmentBoundary> BuildSegmentsFromPoints(List<int> boundaries, int sampleCount)
         {
             List<SegmentBoundary> segments = new List<SegmentBoundary>();
@@ -37,8 +30,7 @@ namespace Analyzer_Service.Services.Algorithms
         }
 
         public SegmentFeatures ExtractFeatures(
-            double[] timeSeriesValues,
-            double[] processedSignalValues,
+            IReadOnlyList<double> processedSignalValues,
             SegmentBoundary segmentBoundary,
             double previousMean,
             double nextMean)
@@ -48,9 +40,8 @@ namespace Analyzer_Service.Services.Algorithms
 
             int segmentLength = endIndex - startIndex;
 
-            double startTime = timeSeriesValues[startIndex];
-            double endTime = timeSeriesValues[endIndex - 1];
-            double durationSeconds = endTime - startTime;
+            
+            double durationSeconds = (endIndex - 1) - startIndex;
 
             double minValue = double.PositiveInfinity;
             double maxValue = double.NegativeInfinity;
@@ -98,9 +89,6 @@ namespace Analyzer_Service.Services.Algorithms
             int peakCount = CountPeaks(processedSignalValues, startIndex, endIndex);
             int troughCount = CountTroughs(processedSignalValues, startIndex, endIndex);
 
-            double safePreviousMean = double.IsNaN(previousMean) ? 0.0 : previousMean;
-            double safeNextMean = double.IsNaN(nextMean) ? 0.0 : nextMean;
-
             SegmentFeatures segmentFeatures = new SegmentFeatures
             {
                 DurationSeconds = durationSeconds,
@@ -113,65 +101,65 @@ namespace Analyzer_Service.Services.Algorithms
                 Slope = slope,
                 PeakCount = peakCount,
                 TroughCount = troughCount,
-                MeanPrev = safePreviousMean,
-                MeanNext = safeNextMean
+                MeanPrev = previousMean,
+                MeanNext = nextMean
             };
 
             return segmentFeatures;
         }
 
-        public int CountPeaks(double[] signalValues, int startIndex, int endIndex)
+        public int CountPeaks(IReadOnlyList<double> signalValues, int startIndex, int endIndex)
         {
             int length = endIndex - startIndex;
             int minimumDistance = Math.Max((int)Math.Floor(0.05 * length), 1);
 
-            int count = 0;
-            int lastIndex = -minimumDistance;
+            int peakCount = 0;
+            int lastPeakIndex = -minimumDistance;
 
-            for (int index = startIndex + 1; index < endIndex - 1; index++)
+            for (int sampleIndex = startIndex + 1; sampleIndex < endIndex - 1; sampleIndex++)
             {
-                double prev = signalValues[index - 1];
-                double current = signalValues[index];
-                double next = signalValues[index + 1];
+                double previousValue = signalValues[sampleIndex - 1];
+                double currentValue = signalValues[sampleIndex];
+                double nextValue = signalValues[sampleIndex + 1];
 
-                double prominence = Math.Abs(current - 0.5 * (prev + next));
-                bool isPeak = current > prev && current > next && prominence >= 0.5;
+                double prominence = Math.Abs(currentValue - 0.5 * (previousValue + nextValue));
+                bool isPeak = currentValue > previousValue && currentValue > nextValue && prominence >= 0.5;
 
-                if (isPeak && (index - lastIndex) >= minimumDistance)
+                if (isPeak && (sampleIndex - lastPeakIndex) >= minimumDistance)
                 {
-                    count++;
-                    lastIndex = index;
+                    peakCount++;
+                    lastPeakIndex = sampleIndex;
                 }
             }
 
-            return count;
+            return peakCount;
         }
 
-        public int CountTroughs(double[] signalValues, int startIndex, int endIndex)
+        public int CountTroughs(IReadOnlyList<double> signalValues, int startIndex, int endIndex)
         {
             int length = endIndex - startIndex;
             int minimumDistance = Math.Max((int)Math.Floor(0.05 * length), 1);
 
-            int count = 0;
-            int lastIndex = -minimumDistance;
+            int troughCount = 0;
+            int lastTroughIndex = -minimumDistance;
 
-            for (int index = startIndex + 1; index < endIndex - 1; index++)
+            for (int sampleIndex = startIndex + 1; sampleIndex < endIndex - 1; sampleIndex++)
             {
-                double prev = signalValues[index - 1];
-                double current = signalValues[index];
-                double next = signalValues[index + 1];
+                double previousValue = signalValues[sampleIndex - 1];
+                double currentValue = signalValues[sampleIndex];
+                double nextValue = signalValues[sampleIndex + 1];
 
-                double prominence = Math.Abs(current - 0.5 * (prev + next));
-                bool isTrough = current < prev && current < next && prominence >= 0.5;
+                double prominence = Math.Abs(currentValue - 0.5 * (previousValue + nextValue));
+                bool isTrough = currentValue < previousValue && currentValue < nextValue && prominence >= 0.5;
 
-                if (isTrough && (index - lastIndex) >= minimumDistance)
+                if (isTrough && (sampleIndex - lastTroughIndex) >= minimumDistance)
                 {
-                    count++;
-                    lastIndex = index;
+                    troughCount++;
+                    lastTroughIndex = sampleIndex;
                 }
             }
 
-            return count;
+            return troughCount;
         }
     }
 }

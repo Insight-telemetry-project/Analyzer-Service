@@ -53,7 +53,6 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 
 
         public List<SegmentClassificationResult> ClassifySegments(
-            double[] timeSeriesValues,
             double[] signalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<double> meanValuesPerSegment)
@@ -77,7 +76,6 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 
                 SegmentFeatures features =
                     featureExtractionUtility.ExtractFeatures(
-                        timeSeriesValues,
                         signalValues,
                         segmentBoundary,
                         previousMeanValue,
@@ -133,7 +131,6 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 
 
         public List<SegmentFeatures> BuildFeatureList(
-            double[] timeSeriesValues,
             double[] signalValues,
             List<SegmentBoundary> segmentBoundaries,
             List<double> meanValuesPerSegment)
@@ -150,7 +147,6 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 
                 SegmentFeatures features =
                     featureExtractionUtility.ExtractFeatures(
-                        timeSeriesValues,
                         signalValues,
                         segmentBoundaries[segmentIndex],
                         previousMean,
