@@ -22,7 +22,8 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 
             if (segmentLength <= ConstantPelt.MINIMUM_SEGMENT_LENGTH)
             {
-                return BuildShortSegmentHash(processedSignal, segmentBoundary);
+                double[] hashVector = this.BuildHashVector(processedSignal, segmentBoundary);
+                return string.Join(ConstantAnomalyDetection.HASH_SPLIT, hashVector);
             }
 
             double[] normalizedTimeArray = BuildNormalizedTimeArray(segmentLength);
@@ -156,22 +157,46 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
         }
         public double[] ComputeHashVector(double[] signalValues, SegmentBoundary segmentBoundary)
         {
-            string hashString = this.ComputeHash(signalValues, segmentBoundary);
+            return this.BuildHashVector(signalValues, segmentBoundary);
+        }
+        private double[] BuildHashVector(double[] processedSignal, SegmentBoundary segmentBoundary)
+        {
+            int segmentLength = segmentBoundary.EndIndex - segmentBoundary.StartIndex;
 
-            string[] hashParts =
-                hashString.Split(
-                    new[] { ConstantAnomalyDetection.HASH_SPLIT },
-                    StringSplitOptions.None);
-
-            double[] hashVector = new double[hashParts.Length];
-
-            for (int partIndex = 0; partIndex < hashParts.Length; partIndex++)
+            if (segmentLength <= ConstantPelt.MINIMUM_SEGMENT_LENGTH)
             {
-                hashVector[partIndex] = double.Parse(hashParts[partIndex]);
+                double repeatedValue = processedSignal[segmentBoundary.StartIndex];
+
+                double[] repeatedValueArray =
+                    Enumerable.Repeat(repeatedValue, ConstantAnomalyDetection.SHAPE_LENGTH).ToArray();
+
+                double[] zScoreValuesForShort = signalProcessingUtility.ApplyZScore(repeatedValueArray);
+
+                double[] roundedShort =
+                    zScoreValuesForShort
+                        .Select(value => Math.Round(value, ConstantAnomalyDetection.ROUND_DECIMALS))
+                        .ToArray();
+
+                return roundedShort;
             }
 
-            return hashVector;
+            double[] normalizedTimeArray = BuildNormalizedTimeArray(segmentLength);
+            double[] segmentValueArray = BuildSegmentValueArray(processedSignal, segmentBoundary);
+            double[] resamplingGrid = CreateResamplingGrid(ConstantAnomalyDetection.SHAPE_LENGTH);
+
+            double[] resampledValues =
+                ResampleSegmentToFixedLength(normalizedTimeArray, segmentValueArray, resamplingGrid);
+
+            double[] zScoreValues = signalProcessingUtility.ApplyZScore(resampledValues);
+
+            double[] roundedZScores =
+                zScoreValues
+                    .Select(value => Math.Round(value, ConstantAnomalyDetection.ROUND_DECIMALS))
+                    .ToArray();
+
+            return roundedZScores;
         }
+
 
 
     }

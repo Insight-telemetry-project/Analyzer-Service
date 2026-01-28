@@ -1,15 +1,15 @@
-﻿using System;
-using Analyzer_Service.Models.Constant;
+﻿using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Interface.Algorithms;
+using System;
+using System.Buffers;
 
 namespace Analyzer_Service.Services.Algorithms
 {
     public class SignalProcessingUtility : ISignalProcessingUtility
     {
-        public double[] ApplyHampel(IReadOnlyList<double> inputValues,
-            int windowSize,double sigma)
+        public double[] ApplyHampel(IReadOnlyList<double> inputValues, int windowSize, double sigma)
         {
-            int totalSampleCount = inputValues.Count;
+            int totalValueCount = inputValues.Count;
 
             if (windowSize % 2 == 0)
             {
@@ -18,55 +18,77 @@ namespace Analyzer_Service.Services.Algorithms
 
             int halfWindowSize = windowSize / 2;
 
-            double[] filteredValues = new double[totalSampleCount];
-
-            for (int sampleIndex = 0; sampleIndex < totalSampleCount; sampleIndex++)
+            double[] filteredOutputValues = new double[totalValueCount];
+            for (int index = 0; index < totalValueCount; index++)
             {
-                filteredValues[sampleIndex] = inputValues[sampleIndex];
+                filteredOutputValues[index] = inputValues[index];
             }
 
-            double[] windowBuffer = new double[windowSize];
-            double[] deviationBuffer = new double[windowSize];
+            double[] windowBuffer = ArrayPool<double>.Shared.Rent(windowSize);
+            double[] deviationBuffer = ArrayPool<double>.Shared.Rent(windowSize);
 
-            for (int centerSampleIndex = 0; centerSampleIndex < totalSampleCount; centerSampleIndex++)
+            for (int centerIndex = 0; centerIndex < totalValueCount; centerIndex++)
             {
-                int windowStartIndex = Math.Max(0, centerSampleIndex - halfWindowSize);
-                int windowEndIndex = Math.Min(totalSampleCount - 1, centerSampleIndex + halfWindowSize);
+                int windowStartIndex = Math.Max(0, centerIndex - halfWindowSize);
+                int windowEndIndex = Math.Min(totalValueCount - 1, centerIndex + halfWindowSize);
+
                 int currentWindowLength = windowEndIndex - windowStartIndex + 1;
 
-                for (int windowOffsetIndex = 0; windowOffsetIndex < currentWindowLength; windowOffsetIndex++)
+                for (int windowOffset = 0; windowOffset < currentWindowLength; windowOffset++)
                 {
-                    windowBuffer[windowOffsetIndex] =
-                        inputValues[windowStartIndex + windowOffsetIndex];
+                    windowBuffer[windowOffset] = inputValues[windowStartIndex + windowOffset];
                 }
 
-                double windowMedian =
-                    ComputeMedian(windowBuffer, currentWindowLength);
+                double medianValue =
+                    ComputeMedianFromPrefix(windowBuffer, currentWindowLength);
 
-                for (int windowOffsetIndex = 0; windowOffsetIndex < currentWindowLength; windowOffsetIndex++)
+                for (int windowOffset = 0; windowOffset < currentWindowLength; windowOffset++)
                 {
-                    deviationBuffer[windowOffsetIndex] =
-                        Math.Abs(windowBuffer[windowOffsetIndex] - windowMedian);
+                    deviationBuffer[windowOffset] =
+                        Math.Abs(windowBuffer[windowOffset] - medianValue);
                 }
 
                 double medianAbsoluteDeviation =
-                    ComputeMedian(deviationBuffer, currentWindowLength);
+                    ComputeMedianFromPrefix(deviationBuffer, currentWindowLength);
 
-                double deviationThreshold =
-                    sigma
-                    * ConstantAlgorithm.THRESHOLD_FORMULA
-                    * (medianAbsoluteDeviation + ConstantAlgorithm.EPSILON);
+                double threshold =
+                    sigma *
+                    ConstantAlgorithm.THRESHOLD_FORMULA *
+                    (medianAbsoluteDeviation + ConstantAlgorithm.EPSILON);
 
-                double centerSampleValue = inputValues[centerSampleIndex];
-
-                if (Math.Abs(centerSampleValue - windowMedian) > deviationThreshold)
+                if (Math.Abs(inputValues[centerIndex] - medianValue) > threshold)
                 {
-                    filteredValues[centerSampleIndex] = windowMedian;
+                    filteredOutputValues[centerIndex] = medianValue;
                 }
             }
 
-            return filteredValues;
+            ArrayPool<double>.Shared.Return(windowBuffer);
+            ArrayPool<double>.Shared.Return(deviationBuffer);
+
+            return filteredOutputValues;
         }
+
+        private double ComputeMedianFromPrefix(double[] buffer, int length)
+        {
+            double[] sortedCopy = new double[length];
+
+            for (int index = 0; index < length; index++)
+            {
+                sortedCopy[index] = buffer[index];
+            }
+
+            Array.Sort(sortedCopy);
+
+            int middleIndex = length / 2;
+
+            if (length % 2 == 1)
+            {
+                return sortedCopy[middleIndex];
+            }
+
+            return 0.5 * (sortedCopy[middleIndex - 1] + sortedCopy[middleIndex]);
+        }
+
 
 
 
