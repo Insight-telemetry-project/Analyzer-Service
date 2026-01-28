@@ -253,8 +253,7 @@ namespace Analyzer_Service.Services
         private List<SegmentClassificationResult> BuildMergedSegmentResults(
             double[] processedSignalValues,List<SegmentBoundary> detectedSegments)
         {
-            List<double> meanValues =
-                segmentLogicUtility.ComputeMeansPerSegment(processedSignalValues, detectedSegments);
+            double[] meanValues = segmentLogicUtility.ComputeMeansPerSegment(processedSignalValues, detectedSegments);
 
             List<SegmentClassificationResult> classificationResults =
                 segmentLogicUtility.ClassifySegments(
@@ -269,8 +268,7 @@ namespace Analyzer_Service.Services
         private List<SegmentFeatures> BuildFeatureList(
             double[] processedSignalValues,List<SegmentBoundary> segmentBoundaries)
         {
-            List<double> meanValues =
-                segmentLogicUtility.ComputeMeansPerSegment(processedSignalValues, segmentBoundaries);
+            double[] meanValues =segmentLogicUtility.ComputeMeansPerSegment(processedSignalValues, segmentBoundaries);
 
             List<SegmentFeatures> featureList =
                 segmentLogicUtility.BuildFeatureList(

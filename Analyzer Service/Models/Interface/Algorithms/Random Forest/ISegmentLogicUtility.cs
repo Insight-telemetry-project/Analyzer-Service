@@ -4,18 +4,18 @@ namespace Analyzer_Service.Models.Interface.Algorithms.Random_Forest
 {
     public interface ISegmentLogicUtility
     {
-        List<double> ComputeMeansPerSegment(double[] signalValues, List<SegmentBoundary> segmentBoundaries);
+        double[] ComputeMeansPerSegment(double[] signalValues, List<SegmentBoundary> segmentBoundaries);
 
         List<SegmentClassificationResult> ClassifySegments(
             double[] signalValues,
             List<SegmentBoundary> segmentBoundaries,
-            List<double> meanValuesPerSegment);
+            double[] meanValuesPerSegment);
 
         List<SegmentClassificationResult> MergeSegments(List<SegmentClassificationResult> segments);
 
         List<SegmentFeatures> BuildFeatureList(
             double[] signalValues,
             List<SegmentBoundary> segmentBoundaries,
-            List<double> meanValuesPerSegment);
+            double[] meanValuesPerSegment);
     }
 }
