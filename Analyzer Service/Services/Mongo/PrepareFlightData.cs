@@ -54,17 +54,18 @@ namespace Analyzer_Service.Services.Mongo
 
 
 
-        public async Task<IList<double>> GetParameterValuesAsync(int masterIndex, string parameterName)
+        public async Task<IReadOnlyList<double>> GetParameterValuesAsync(int masterIndex, string parameterName)
         {
             CachedFlightData cachedFlight = await _telemetryMongo.GetOrLoadFlightCacheAsync(masterIndex);
 
             if (!cachedFlight.FieldValues.TryGetValue(parameterName, out List<double> parameterValues))
             {
-                return new List<double>().AsReadOnly();
+                return Array.Empty<double>();
             }
 
             return parameterValues.AsReadOnly();
         }
+
 
 
 

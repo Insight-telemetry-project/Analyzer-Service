@@ -141,7 +141,7 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
 
             double lowerValue = segmentValueArray[lowerIndex];
             double upperValue = segmentValueArray[upperIndex];
-
+            
             double interpolationWeight =
                 (targetNormalizedTime - lowerTime) / (upperTime - lowerTime);
 
@@ -154,5 +154,25 @@ namespace Analyzer_Service.Services.Algorithms.AnomalyDetector
                 normalizedTimeArray,
                 timeValue => timeValue <= targetNormalizedTime);
         }
+        public double[] ComputeHashVector(double[] signalValues, SegmentBoundary segmentBoundary)
+        {
+            string hashString = this.ComputeHash(signalValues, segmentBoundary);
+
+            string[] hashParts =
+                hashString.Split(
+                    new[] { ConstantAnomalyDetection.HASH_SPLIT },
+                    StringSplitOptions.None);
+
+            double[] hashVector = new double[hashParts.Length];
+
+            for (int partIndex = 0; partIndex < hashParts.Length; partIndex++)
+            {
+                hashVector[partIndex] = double.Parse(hashParts[partIndex]);
+            }
+
+            return hashVector;
+        }
+
+
     }
 }

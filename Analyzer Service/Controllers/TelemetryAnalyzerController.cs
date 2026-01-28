@@ -96,9 +96,6 @@ namespace Analyzer_Service.Controllers
                 landing
             });
         }
-
-
-
     }
 }
 

@@ -54,12 +54,15 @@ namespace Analyzer_Service.Services
             this.tuningSettingsFactory = tuningSettingsFactory;
         }
 
-        private async Task<double[]> LoadSignalValuesAsync(int masterIndex, string fieldName)
+        private async Task<IReadOnlyList<double>> LoadSignalValuesAsync(int masterIndex, string fieldName)
         {
-            List<double> signalValuesList = await flightDataPreparer.GetParameterValuesCopyAsync(masterIndex, fieldName);
-            double[] signalValuesArray = signalValuesList.ToArray();
-            return signalValuesArray;
+            IReadOnlyList<double> readOnlyValues =
+                await flightDataPreparer.GetParameterValuesAsync(masterIndex, fieldName);
+
+            return readOnlyValues;
         }
+
+
 
         private static double[] BuildSyntheticTimeSeriesValues(int sampleCount)
         {
@@ -100,7 +103,7 @@ namespace Analyzer_Service.Services
             return segments;
         }
 
-        private double[] PreprocessSignal(double[] signalValues)
+        private double[] PreprocessSignal(IReadOnlyList<double> signalValues)
         {
             if (!IsNoisy)
             {
@@ -118,6 +121,7 @@ namespace Analyzer_Service.Services
             return normalizedSignalValues;
         }
 
+
         public async Task<SegmentAnalysisResult> ClassifyWithAnomaliesAsync(
             int masterIndex,
             string fieldName,
@@ -125,8 +129,8 @@ namespace Analyzer_Service.Services
             int endIndex,
             flightStatus status)
         {
-            double[] rawSignalValues = await LoadSignalValuesAsync(masterIndex, fieldName);
-            double[] timeSeriesValues = BuildSyntheticTimeSeriesValues(rawSignalValues.Length);
+            IReadOnlyList<double> rawSignalValues = await LoadSignalValuesAsync(masterIndex, fieldName);
+            double[] timeSeriesValues = BuildSyntheticTimeSeriesValues(rawSignalValues.Count);
 
             bool isNoisyFlight = DetermineIsNoisyFlight(rawSignalValues);
             IsNoisy = isNoisyFlight;
@@ -134,7 +138,7 @@ namespace Analyzer_Service.Services
             signalNoiseTuning.ApplyHighNoiseConfiguration();
 
             List<SegmentBoundary> detectedSegments =
-                await DetectSegments(masterIndex, fieldName, rawSignalValues.Length, status);
+                await DetectSegments(masterIndex, fieldName, rawSignalValues.Count, status);
 
             double[] processedSignalValues = PreprocessSignal(rawSignalValues);
 
@@ -306,25 +310,19 @@ namespace Analyzer_Service.Services
             }
         }
 
-        private void AttachHashVectors(
-            double[] processedSignalValues,
-            List<SegmentClassificationResult> results)
+        private void AttachHashVectors(double[] processedSignalValues,List<SegmentClassificationResult> results)
         {
             for (int resultIndex = 0; resultIndex < results.Count; resultIndex++)
             {
                 SegmentBoundary segmentBoundary = results[resultIndex].Segment;
 
-                string hashString = patternHashingUtility.ComputeHash(processedSignalValues, segmentBoundary);
-
                 double[] hashVector =
-                    hashString
-                        .Split(',')
-                        .Select(double.Parse)
-                        .ToArray();
+                    patternHashingUtility.ComputeHashVector(processedSignalValues, segmentBoundary);
 
                 results[resultIndex].HashVector = hashVector;
             }
         }
+
 
         private async Task StoreAnomaliesAsync(
             int masterIndex,
@@ -397,16 +395,16 @@ namespace Analyzer_Service.Services
             await flightTelemetryMongoProxy.StoreHistoricalAnomalyAsync(record);
         }
 
-        private bool DetermineIsNoisyFlight(double[] signalValues)
+        private bool DetermineIsNoisyFlight(IReadOnlyList<double> signalValues)
         {
-            if (signalValues.Length < 2)
+            if (signalValues.Count < 2)
             {
                 return false;
             }
 
-            double[] diffs = new double[signalValues.Length - 1];
+            double[] diffs = new double[signalValues.Count - 1];
 
-            for (int sampleIndex = 1; sampleIndex < signalValues.Length; sampleIndex++)
+            for (int sampleIndex = 1; sampleIndex < signalValues.Count; sampleIndex++)
             {
                 double currentValue = signalValues[sampleIndex];
                 double previousValue = signalValues[sampleIndex - 1];

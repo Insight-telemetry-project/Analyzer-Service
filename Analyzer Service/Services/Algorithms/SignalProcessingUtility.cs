@@ -6,55 +6,73 @@ namespace Analyzer_Service.Services.Algorithms
 {
     public class SignalProcessingUtility : ISignalProcessingUtility
     {
-        public double[] ApplyHampel(double[] inputValues, int windowSize, double sigma)
+        public double[] ApplyHampel(IReadOnlyList<double> inputValues,
+            int windowSize,double sigma)
         {
-            int valueCount = inputValues.Length;
+            int totalSampleCount = inputValues.Count;
 
             if (windowSize % 2 == 0)
             {
                 windowSize = windowSize + 1;
             }
 
-            int halfWindow = windowSize / 2;
+            int halfWindowSize = windowSize / 2;
 
-            double[] outputValues = new double[valueCount];
-            Array.Copy(inputValues, outputValues, valueCount);
+            double[] filteredValues = new double[totalSampleCount];
 
-            for (int index = 0; index < valueCount; index++)
+            for (int sampleIndex = 0; sampleIndex < totalSampleCount; sampleIndex++)
             {
-                int windowStart = Math.Max(0, index - halfWindow);
-                int windowEnd = Math.Min(valueCount - 1, index + halfWindow);
-                int windowLength = windowEnd - windowStart + 1;
+                filteredValues[sampleIndex] = inputValues[sampleIndex];
+            }
 
-                double[] localWindow = new double[windowLength];
-                for (int indexWindow = 0; indexWindow < windowLength; indexWindow++)
+            double[] windowBuffer = new double[windowSize];
+            double[] deviationBuffer = new double[windowSize];
+
+            for (int centerSampleIndex = 0; centerSampleIndex < totalSampleCount; centerSampleIndex++)
+            {
+                int windowStartIndex = Math.Max(0, centerSampleIndex - halfWindowSize);
+                int windowEndIndex = Math.Min(totalSampleCount - 1, centerSampleIndex + halfWindowSize);
+                int currentWindowLength = windowEndIndex - windowStartIndex + 1;
+
+                for (int windowOffsetIndex = 0; windowOffsetIndex < currentWindowLength; windowOffsetIndex++)
                 {
-                    localWindow[indexWindow] = inputValues[windowStart + indexWindow];
+                    windowBuffer[windowOffsetIndex] =
+                        inputValues[windowStartIndex + windowOffsetIndex];
                 }
 
-                double median = ComputeMedian(localWindow);
+                double windowMedian =
+                    ComputeMedian(windowBuffer, currentWindowLength);
 
-                double[] absoluteDeviation = new double[windowLength];
-                for (int indexWindow = 0; indexWindow < windowLength; indexWindow++)
+                for (int windowOffsetIndex = 0; windowOffsetIndex < currentWindowLength; windowOffsetIndex++)
                 {
-                    absoluteDeviation[indexWindow] = Math.Abs(localWindow[indexWindow] - median);
+                    deviationBuffer[windowOffsetIndex] =
+                        Math.Abs(windowBuffer[windowOffsetIndex] - windowMedian);
                 }
 
-                double mad = ComputeMedian(absoluteDeviation);
-                double threshold = sigma * ConstantAlgorithm.THRESHOLD_FORMULA * (mad + ConstantAlgorithm.EPSILON);
+                double medianAbsoluteDeviation =
+                    ComputeMedian(deviationBuffer, currentWindowLength);
 
-                if (Math.Abs(inputValues[index] - median) > threshold)
+                double deviationThreshold =
+                    sigma
+                    * ConstantAlgorithm.THRESHOLD_FORMULA
+                    * (medianAbsoluteDeviation + ConstantAlgorithm.EPSILON);
+
+                double centerSampleValue = inputValues[centerSampleIndex];
+
+                if (Math.Abs(centerSampleValue - windowMedian) > deviationThreshold)
                 {
-                    outputValues[index] = median;
+                    filteredValues[centerSampleIndex] = windowMedian;
                 }
             }
 
-            return outputValues;
+            return filteredValues;
         }
 
-        public double[] ApplyZScore(double[] values)
+
+
+        public double[] ApplyZScore(IReadOnlyList<double> values)
         {
-            int count = values.Length;
+            int count = values.Count;
 
             double sum = 0.0;
             for (int index = 0; index < count; index++)
@@ -86,20 +104,27 @@ namespace Analyzer_Service.Services.Algorithms
             return output;
         }
 
+
         public double ComputeMedian(double[] values)
         {
             double[] sorted = (double[])values.Clone();
-            Array.Sort(sorted);
+            return ComputeMedian(sorted, sorted.Length);
+        }
 
-            int count = sorted.Length;
-            int midIndex = count / 2;
+        public double ComputeMedian(double[] buffer, int length)
+        {
+            Array.Sort(buffer, 0, length);
 
-            if (count % 2 == 1)
+            int midIndex = length / 2;
+
+            if (length % 2 == 1)
             {
-                return sorted[midIndex];
+                return buffer[midIndex];
             }
 
-            return 0.5 * (sorted[midIndex - 1] + sorted[midIndex]);
+            return 0.5 * (buffer[midIndex - 1] + buffer[midIndex]);
         }
+
+
     }
 }

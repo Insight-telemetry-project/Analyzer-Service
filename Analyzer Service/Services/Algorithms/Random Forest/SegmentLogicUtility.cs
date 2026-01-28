@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using Analyzer_Service.Models.Dto;
+﻿using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
 
@@ -30,16 +28,29 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
             {
                 SegmentBoundary segmentBoundary = segmentBoundaries[segmentIndex];
 
-                IEnumerable<double> segmentSlice = signalValues
-                    .Skip(segmentBoundary.StartIndex)
-                    .Take(segmentBoundary.EndIndex - segmentBoundary.StartIndex);
+                int startIndex = segmentBoundary.StartIndex;
+                int endIndex = segmentBoundary.EndIndex;
 
-                double meanValue = segmentSlice.Average();
+                int segmentLength = endIndex - startIndex;
+                if (segmentLength <= 0)
+                {
+                    meanValuesPerSegment.Add(0.0);
+                    continue;
+                }
+
+                double sum = 0.0;
+                for (int sampleIndex = startIndex; sampleIndex < endIndex; sampleIndex++)
+                {
+                    sum += signalValues[sampleIndex];
+                }
+
+                double meanValue = sum / segmentLength;
                 meanValuesPerSegment.Add(meanValue);
             }
 
             return meanValuesPerSegment;
         }
+
 
         public List<SegmentClassificationResult> ClassifySegments(
             double[] timeSeriesValues,
@@ -47,7 +58,8 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
             List<SegmentBoundary> segmentBoundaries,
             List<double> meanValuesPerSegment)
         {
-            List<SegmentClassificationResult> classificationResults = new List<SegmentClassificationResult>();
+            List<SegmentClassificationResult> classificationResults =
+                new List<SegmentClassificationResult>(segmentBoundaries.Count);
 
             RandomForestModel model = modelProvider.GetModel();
 
@@ -82,13 +94,19 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
 
         public List<SegmentClassificationResult> MergeSegments(List<SegmentClassificationResult> classificationResults)
         {
-            List<SegmentClassificationResult> mergedResults = new List<SegmentClassificationResult>();
+            if (classificationResults == null || classificationResults.Count == 0)
+            {
+                return new List<SegmentClassificationResult>();
+            }
+
+            List<SegmentClassificationResult> mergedResults =
+                new List<SegmentClassificationResult>(classificationResults.Count);
 
             SegmentClassificationResult currentSegment = classificationResults[0];
 
-            for (int index = 1; index < classificationResults.Count; index++)
+            for (int resultIndex = 1; resultIndex < classificationResults.Count; resultIndex++)
             {
-                SegmentClassificationResult nextSegment = classificationResults[index];
+                SegmentClassificationResult nextSegment = classificationResults[resultIndex];
 
                 bool labelsMatch = currentSegment.Label == nextSegment.Label;
                 bool segmentsAreContinuous = currentSegment.Segment.EndIndex == nextSegment.Segment.StartIndex;
@@ -113,6 +131,7 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
             return mergedResults;
         }
 
+
         public List<SegmentFeatures> BuildFeatureList(
             double[] timeSeriesValues,
             double[] signalValues,
@@ -124,14 +143,10 @@ namespace Analyzer_Service.Services.Algorithms.Random_Forest
             for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
             {
                 double previousMean =
-                    segmentIndex > 0
-                        ? meanValuesPerSegment[segmentIndex - 1]
-                        : 0.0;
+                    segmentIndex > 0 ? meanValuesPerSegment[segmentIndex - 1] : 0.0;
 
                 double nextMean =
-                    segmentIndex < meanValuesPerSegment.Count - 1
-                        ? meanValuesPerSegment[segmentIndex + 1]
-                        : 0.0;
+                    segmentIndex < meanValuesPerSegment.Count - 1 ? meanValuesPerSegment[segmentIndex + 1] : 0.0;
 
                 SegmentFeatures features =
                     featureExtractionUtility.ExtractFeatures(
