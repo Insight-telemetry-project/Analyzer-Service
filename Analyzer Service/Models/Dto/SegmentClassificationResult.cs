@@ -1,0 +1,17 @@
+﻿using System.Runtime.CompilerServices;
+
+namespace Analyzer_Service.Models.Dto
+{
+    public class SegmentClassificationResult
+    {
+        public SegmentBoundary Segment { get; }
+        public string Label { get; }
+        public SegmentFeatures FeatureValues { get; set; } = new();
+        public double[] HashVector { get; set; } = Array.Empty<double>();
+        public SegmentClassificationResult(SegmentBoundary segment, string label)
+        {
+            Segment = segment;
+            Label = label;
+        }
+    }    
+}

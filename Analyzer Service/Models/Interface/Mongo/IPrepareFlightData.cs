@@ -1,7 +1,16 @@
-﻿namespace Analyzer_Service.Models.Interface.Mongo
+﻿using Analyzer_Service.Models.Dto;
+
+namespace Analyzer_Service.Models.Interface.Mongo
 {
     public interface IPrepareFlightData
     {
-        Task<(List<double> X, List<double> Y)> PrepareFlightDataAsync(int masterIndex, string xField, string yField);
+         Task<SignalSeries> PrepareFlightDataAsync(int masterIndex, string xField, string yField);
+         Task<List<double>> PrepareYAsync(int masterIndex, string fieldName);
+
+        Task<IReadOnlyList<double>> GetParameterValuesAsync(int masterIndex, string parameterName);
+
+         Task<List<double>> GetParameterValuesCopyAsync(int masterIndex, string parameterName);
+
+
     }
 }
