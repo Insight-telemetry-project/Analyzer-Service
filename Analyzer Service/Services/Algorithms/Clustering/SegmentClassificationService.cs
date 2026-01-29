@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
-using Analyzer_Service.Models.Constant;
+﻿using Analyzer_Service.Models.Constant;
 using Analyzer_Service.Models.Dto;
 using Analyzer_Service.Models.Enums;
 using Analyzer_Service.Models.Interface.Algorithms;
@@ -12,6 +8,11 @@ using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Models.Schema;
+using System;
+using System.Buffers;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace Analyzer_Service.Services
 {
@@ -113,13 +114,11 @@ namespace Analyzer_Service.Services
 
 
         public async Task<SegmentAnalysisResult> ClassifyWithAnomaliesAsync(
-            int masterIndex,
-            string fieldName,
-            int startIndex,
-            int endIndex,
-            flightStatus status)
+            int masterIndex,string fieldName,
+            int startIndex,int endIndex,flightStatus status)
         {
-            IReadOnlyList<double> rawSignalValues = await LoadSignalValuesAsync(masterIndex, fieldName);
+            IReadOnlyList<double> rawSignalValues =
+                await LoadSignalValuesAsync(masterIndex, fieldName);
 
             bool isNoisyFlight = DetermineIsNoisyFlight(rawSignalValues);
             IsNoisy = isNoisyFlight;
@@ -127,12 +126,22 @@ namespace Analyzer_Service.Services
             signalNoiseTuning.ApplyHighNoiseConfiguration();
 
             List<SegmentBoundary> detectedSegments =
-                await DetectSegments(masterIndex, fieldName, rawSignalValues.Count, status);
+                await DetectSegments(
+                    masterIndex,
+                    fieldName,
+                    rawSignalValues.Count,
+                    status);
 
-            double[] processedSignalValues = PreprocessSignal(rawSignalValues);
+            int processedLength;
+            double[] processedSignalValues =
+                signalProcessingUtility.ApplyZScorePooled(
+                    rawSignalValues,
+                    out processedLength);
 
             List<SegmentClassificationResult> segmentClassificationResults =
-                BuildMergedSegmentResults(processedSignalValues, detectedSegments);
+                BuildMergedSegmentResults(
+                    processedSignalValues,
+                    detectedSegments);
 
             List<SegmentBoundary> mergedSegmentBoundaries =
                 segmentClassificationResults
@@ -140,10 +149,17 @@ namespace Analyzer_Service.Services
                     .ToList();
 
             List<SegmentFeatures> featureList =
-                BuildFeatureList(processedSignalValues, mergedSegmentBoundaries);
+                BuildFeatureList(
+                    processedSignalValues,
+                    mergedSegmentBoundaries);
 
-            AttachFeaturesToResults(segmentClassificationResults, featureList);
-            AttachHashVectors(processedSignalValues, segmentClassificationResults);
+            AttachFeaturesToResults(
+                segmentClassificationResults,
+                featureList);
+
+            AttachHashVectors(
+                processedSignalValues,
+                segmentClassificationResults);
 
             List<int> detectedAnomalySegmentIndexes =
                 DetectAnomalies(
@@ -178,6 +194,8 @@ namespace Analyzer_Service.Services
 
             return result;
         }
+
+
 
         private List<int> DetectAnomalies(
             double[] processedSignalValues,

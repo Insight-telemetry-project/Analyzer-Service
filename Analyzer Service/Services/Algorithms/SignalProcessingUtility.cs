@@ -146,6 +146,40 @@ namespace Analyzer_Service.Services.Algorithms
 
             return 0.5 * (buffer[midIndex - 1] + buffer[midIndex]);
         }
+        public double[] ApplyZScorePooled(IReadOnlyList<double> values, out int length)
+        {
+            length = values.Count;
+
+            double sum = 0.0;
+            for (int index = 0; index < length; index++)
+            {
+                sum += values[index];
+            }
+
+            double mean = sum / length;
+
+            double varianceSum = 0.0;
+            for (int index = 0; index < length; index++)
+            {
+                double delta = values[index] - mean;
+                varianceSum += delta * delta;
+            }
+
+            double std = Math.Sqrt(varianceSum / length);
+            if (std < ConstantAlgorithm.EPSILON)
+            {
+                std = 1.0;
+            }
+
+            double[] rentedOutput = ArrayPool<double>.Shared.Rent(length);
+
+            for (int index = 0; index < length; index++)
+            {
+                rentedOutput[index] = (values[index] - mean) / std;
+            }
+
+            return rentedOutput;
+        }
 
 
     }
