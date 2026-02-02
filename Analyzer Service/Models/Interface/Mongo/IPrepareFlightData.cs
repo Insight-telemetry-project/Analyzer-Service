@@ -1,4 +1,5 @@
 ﻿using Analyzer_Service.Models.Dto;
+using Analyzer_Service.Models.Schema;
 
 namespace Analyzer_Service.Models.Interface.Mongo
 {
@@ -11,6 +12,7 @@ namespace Analyzer_Service.Models.Interface.Mongo
 
          Task<List<double>> GetParameterValuesCopyAsync(int masterIndex, string parameterName);
 
+        public Task<List<HistoricalAnomalyRecord>> GetFlightPointsByParameterAsync(int masterIndex, string parameterName);
 
     }
 }

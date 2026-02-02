@@ -18,5 +18,8 @@ namespace Analyzer_Service.Models.Schema
         [BsonElement("Anomalies")]
         public Dictionary<string, List<double>> Anomalies { get; set; } = new();
 
+        [BsonElement("HistoricalSimilarity")]
+        public Dictionary<string, List<HistoricalSimilarityPoint>> HistoricalSimilarity { get; set; } = new();
+
     }
 }

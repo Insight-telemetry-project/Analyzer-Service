@@ -9,118 +9,117 @@ using Analyzer_Service.Models.Ro.Algorithms;
 using Analyzer_Service.Models.Schema;
 using Analyzer_Service.Services.Algorithms.Pelt;
 using MongoDB.Driver;
-using System.Collections.Generic;
-using System.Reflection.Metadata;
-using System.Threading.Tasks;
 namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 {
     public class HistoricalAnomalySimilarityService : IHistoricalAnomalySimilarityService
     {
         private readonly IFlightTelemetryMongoProxy mongoProxy;
         private readonly IHistoricalAnomalySimilarityLogic logic;
-        private readonly ISegmentClassificationService segmentClassifier;
         private readonly ITuningSettingsFactory _tuningSettingsFactory;
+        private readonly IPrepareFlightData _prepareFlightData;
+
         public HistoricalAnomalySimilarityService(
             IFlightTelemetryMongoProxy mongoProxy,
             IHistoricalAnomalySimilarityLogic logic,
-            ISegmentClassificationService segmentClassification,
-            ITuningSettingsFactory tuningSettingsFactory)
+            ITuningSettingsFactory tuningSettingsFactory,
+            IPrepareFlightData prepareFlightData)
         {
             this.mongoProxy = mongoProxy;
             this.logic = logic;
-            this.segmentClassifier = segmentClassification;
             this._tuningSettingsFactory = tuningSettingsFactory;
+            this._prepareFlightData = prepareFlightData;
         }
 
         public async Task<List<HistoricalSimilarityResult>> FindSimilarAnomaliesAsync(
-           int masterIndex,
-           string parameterName,
-           flightStatus status)
+            int masterIndex,string parameterName,flightStatus status)
         {
-            SegmentAnalysisResult classification =
-                await segmentClassifier.ClassifyWithAnomaliesAsync(masterIndex, parameterName, 0, 0, flightStatus.FullFlight);
+            PeltTuningSettings settings = _tuningSettingsFactory.Get(status);
+
+            List<HistoricalAnomalyRecord> flightPoints =
+                await _prepareFlightData.GetFlightPointsByParameterAsync(masterIndex, parameterName);
 
             List<HistoricalSimilarityResult> finalResults = new List<HistoricalSimilarityResult>();
+            List<HistoricalSimilarityPoint> pointsToStore = new List<HistoricalSimilarityPoint>();
 
-            for (int indexAnomalyIndexes = 0; indexAnomalyIndexes < classification.AnomalyIndexes.Count; indexAnomalyIndexes++)
+            List<HistoricalAnomalyRecord> allCandidates =
+                await mongoProxy.GetHistoricalCandidatesByParameterAsync(parameterName, masterIndex);
+
+            Dictionary<string, List<HistoricalAnomalyRecord>> candidatesByLabel =
+                new Dictionary<string, List<HistoricalAnomalyRecord>>();
+
+            for (int indexCandidate = 0; indexCandidate < allCandidates.Count; indexCandidate++)
             {
-                int sampleIndex = classification.AnomalyIndexes[indexAnomalyIndexes];
+                HistoricalAnomalyRecord candidate = allCandidates[indexCandidate];
 
-                int segmentIndex =
-                    MapSampleIndexToSegmentIndex(sampleIndex, classification.SegmentBoundaries);
+                if (!candidatesByLabel.TryGetValue(candidate.Label, out List<HistoricalAnomalyRecord> labelList))
+                {
+                    labelList = new List<HistoricalAnomalyRecord>();
+                    candidatesByLabel.Add(candidate.Label, labelList);
+                }
 
-                if (segmentIndex == -1)
+                labelList.Add(candidate);
+            }
+
+            for (int indexPoint = 0; indexPoint < flightPoints.Count; indexPoint++)
+            {
+                HistoricalAnomalyRecord current = flightPoints[indexPoint];
+
+                if (!candidatesByLabel.TryGetValue(current.Label, out List<HistoricalAnomalyRecord> candidatesForLabel))
                 {
                     continue;
                 }
 
-                await ProcessSingleAnomalyAsync(
-                    segmentIndex,
-                    masterIndex,
-                    parameterName,
-                    classification.Segments,
-                    finalResults,
-                    status);
-
-            }
-
-            return finalResults;
-        }
-        private async Task ProcessSingleAnomalyAsync(
-           int anomalyIndex,
-           int masterIndex,
-           string parameterName,
-           List<SegmentClassificationResult> segments,
-           List<HistoricalSimilarityResult> finalResults,
-           flightStatus status)
-        {
-            PeltTuningSettings settings = _tuningSettingsFactory.Get(status);
-
-            SegmentClassificationResult current = segments[anomalyIndex];
-
-            IAsyncCursor<HistoricalAnomalyRecord> cursor =
-                await mongoProxy.GetHistoricalCandidatesAsync(
-                    parameterName,
-                    current.Label,
-                    masterIndex);
-
-            while (await cursor.MoveNextAsync())
-            {
-                foreach (HistoricalAnomalyRecord record in cursor.Current)
+                for (int indexCandidate = 0; indexCandidate < candidatesForLabel.Count; indexCandidate++)
                 {
-                    if (record.MasterIndex == masterIndex)
-                    {
-                        continue;
-                    }
+                    HistoricalAnomalyRecord candidate = candidatesForLabel[indexCandidate];
 
-                    SimilarityScores similarity = ComputeSimilarity(record, current,status);
+                    SimilarityScores similarity = ComputeSimilarity(candidate, current, status);
 
                     if (similarity.FinalScore >= settings.FINAL_SCORE)
                     {
                         HistoricalSimilarityResult result =
-                            CreateResult(record, current, similarity);
+                            CreateResult(candidate, current, similarity);
 
                         finalResults.Add(result);
+
+                        HistoricalSimilarityPoint point = new HistoricalSimilarityPoint
+                        {
+                            RecordId = candidate.Id.ToString(),
+                            ComparedFlightIndex = candidate.MasterIndex,
+                            StartIndex = candidate.StartIndex,
+                            EndIndex = candidate.EndIndex,
+                            Label = candidate.Label,
+                            FinalScore = similarity.FinalScore
+                        };
+
+                        pointsToStore.Add(point);
                     }
                 }
             }
+
+            await mongoProxy.StoreHistoricalSimilarityAsync(masterIndex, parameterName, pointsToStore);
+
+            return finalResults;
         }
 
 
-        private SimilarityScores ComputeSimilarity(HistoricalAnomalyRecord record,SegmentClassificationResult current,flightStatus status)
+
+
+        private SimilarityScores ComputeSimilarity(
+            HistoricalAnomalyRecord record,HistoricalAnomalyRecord current,flightStatus status)
         {
             double[] existingHash = ParseHash(record.PatternHash);
-            double[] newHash = current.HashVector;
+            double[] newHash = ParseHash(current.PatternHash);
 
-            double hashSim = logic.CompareHashesFuzzy(existingHash, newHash,status);
+            double hashSim = logic.CompareHashesFuzzy(existingHash, newHash, status);
             double featureSim = logic.CompareFeatureVectors(record.FeatureValues, current.FeatureValues);
 
             double existingDuration = record.EndIndex - record.StartIndex;
-            double newDuration = current.Segment.EndIndex - current.Segment.StartIndex;
+            double newDuration = current.EndIndex - current.StartIndex;
 
             double durationSim = logic.CompareDurationSimilarity(existingDuration, newDuration);
 
-            double final = logic.ComputeWeightedScore(hashSim, featureSim, durationSim,status);
+            double final = logic.ComputeWeightedScore(hashSim, featureSim, durationSim, status);
 
             return new SimilarityScores
             {
@@ -132,7 +131,9 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
         }
 
 
-        private HistoricalSimilarityResult CreateResult(HistoricalAnomalyRecord record,SegmentClassificationResult current,SimilarityScores similarityScores)
+
+        private HistoricalSimilarityResult CreateResult(
+            HistoricalAnomalyRecord record,HistoricalAnomalyRecord current,SimilarityScores similarityScores)
         {
             return new HistoricalSimilarityResult
             {
@@ -142,8 +143,8 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
                 HistoricalEndIndex = record.EndIndex,
                 HistoricalLabel = record.Label,
 
-                NewStartIndex = current.Segment.StartIndex,
-                NewEndIndex = current.Segment.EndIndex,
+                NewStartIndex = current.StartIndex,
+                NewEndIndex = current.EndIndex,
                 NewLabel = current.Label,
 
                 FinalScore = similarityScores.FinalScore,
@@ -152,6 +153,7 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
                 DurationSimilarity = similarityScores.DurationSimilarity
             };
         }
+
 
 
         private double[] ParseHash(string hash)
@@ -168,21 +170,7 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 
             return values;
         }
-
-        private static int MapSampleIndexToSegmentIndex(int sampleIndex,List<SegmentBoundary> segmentBoundaries)
-        {
-            for (int segmentIndex = 0; segmentIndex < segmentBoundaries.Count; segmentIndex++)
-            {
-                SegmentBoundary boundary = segmentBoundaries[segmentIndex];
-
-                if (sampleIndex >= boundary.StartIndex && sampleIndex <= boundary.EndIndex)
-                {
-                    return segmentIndex;
-                }
-            }
-
-            return -1;
-        }
+        
 
     }
 }

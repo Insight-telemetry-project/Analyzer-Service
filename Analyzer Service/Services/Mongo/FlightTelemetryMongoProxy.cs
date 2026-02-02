@@ -193,6 +193,41 @@ namespace Analyzer_Service.Services.Mongo
             return new CachedFlightData(fieldValues);
         }
 
+        public async Task<List<HistoricalAnomalyRecord>> GetAllPointsByFlightNumber(int masterIndex)
+        {
+                        FilterDefinition<HistoricalAnomalyRecord> filter =
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
+            List<HistoricalAnomalyRecord> results = await _historicalAnomalies.Find(filter).ToListAsync();
+            return results;
+        }
+
+
+        public async Task<List<HistoricalAnomalyRecord>> GetHistoricalCandidatesByParameterAsync(string parameterName, int excludeMasterIndex)
+        {
+            FilterDefinition<HistoricalAnomalyRecord> filter =
+                Builders<HistoricalAnomalyRecord>.Filter.Eq(record => record.ParameterName, parameterName) &
+                Builders<HistoricalAnomalyRecord>.Filter.Ne(record => record.MasterIndex, excludeMasterIndex);
+
+            List<HistoricalAnomalyRecord> results =
+                await _historicalAnomalies.Find(filter).ToListAsync();
+
+            return results;
+        }
+        public async Task StoreHistoricalSimilarityAsync(int masterIndex,string parameterName,List<HistoricalSimilarityPoint> points)
+        {
+            FilterDefinition<TelemetryFlightData> filter =
+                Builders<TelemetryFlightData>.Filter.Eq(flight => flight.MasterIndex, masterIndex);
+
+            UpdateDefinition<TelemetryFlightData> update =
+                Builders<TelemetryFlightData>.Update
+                    .Set($"HistoricalSimilarity.{parameterName}", points)
+                    .SetOnInsert("Master Index", masterIndex);
+
+            await _telemetryFlightData.UpdateOneAsync(
+                filter,
+                update,
+                new UpdateOptions { IsUpsert = true });
+        }
 
     }
 }
