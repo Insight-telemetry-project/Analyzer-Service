@@ -34,6 +34,8 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
             int masterIndex,string parameterName,flightStatus status)
         {
             PeltTuningSettings settings = _tuningSettingsFactory.Get(status);
+            
+            long flightStartEpochSeconds = await _prepareFlightData.GetFlightStartEpochSecondsAsync(masterIndex);
 
             List<HistoricalAnomalyRecord> flightPoints =
                 await _prepareFlightData.GetFlightPointsByParameterAsync(masterIndex, parameterName);
@@ -82,15 +84,20 @@ namespace Analyzer_Service.Services.Algorithms.HistoricalAnomaly
 
                         finalResults.Add(result);
 
+                        long startEpoch = flightStartEpochSeconds + (long)current.StartIndex;
+                        long endEpoch = flightStartEpochSeconds + (long)current.EndIndex;
+
                         HistoricalSimilarityPoint point = new HistoricalSimilarityPoint
                         {
                             RecordId = candidate.Id.ToString(),
                             ComparedFlightIndex = candidate.MasterIndex,
-                            StartIndex = candidate.StartIndex,
-                            EndIndex = candidate.EndIndex,
                             Label = candidate.Label,
-                            FinalScore = similarity.FinalScore
+                            FinalScore = similarity.FinalScore,
+
+                            StartIndex = startEpoch,
+                            EndIndex = endEpoch
                         };
+
 
                         pointsToStore.Add(point);
                     }

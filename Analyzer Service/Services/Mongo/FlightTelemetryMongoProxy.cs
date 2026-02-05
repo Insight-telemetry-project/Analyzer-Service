@@ -229,5 +229,26 @@ namespace Analyzer_Service.Services.Mongo
                 new UpdateOptions { IsUpsert = true });
         }
 
+        public async Task<long> GetFlightStartEpochSecondsAsync(int masterIndex)
+        {
+            FilterDefinition<TelemetrySensorFields> filter =
+                Builders<TelemetrySensorFields>.Filter.Eq(record => record.MasterIndex, masterIndex);
+
+            long? firstTimestep =
+                await _telemetryFields
+                    .Find(filter)
+                    .SortBy(record => record.Timestep)
+                    .Limit(1)
+                    .Project(record => (long?)record.Timestep)
+                    .FirstOrDefaultAsync();
+
+            if (!firstTimestep.HasValue)
+            {
+                return -1;
+            }
+
+            return firstTimestep.Value;
+        }
+
     }
 }

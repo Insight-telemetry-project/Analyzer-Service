@@ -176,14 +176,12 @@ namespace Analyzer_Service.Services
                     segmentClassificationResults,
                     detectedAnomalySegmentIndexes);
 
+            long flightStartEpochSeconds =await flightDataPreparer.GetFlightStartEpochSecondsAsync(masterIndex);
+
             await StoreAnomaliesAsync(
-                masterIndex,
-                fieldName,
-                processedSignalValues,
-                mergedSegmentBoundaries,
-                segmentClassificationResults,
-                detectedAnomalySegmentIndexes,
-                featureList);
+                masterIndex,fieldName,processedSignalValues,mergedSegmentBoundaries,
+                segmentClassificationResults,detectedAnomalySegmentIndexes,featureList,flightStartEpochSeconds);
+
 
             SegmentAnalysisResult result = new SegmentAnalysisResult
             {
@@ -323,13 +321,9 @@ namespace Analyzer_Service.Services
 
 
         private async Task StoreAnomaliesAsync(
-            int masterIndex,
-            string fieldName,
-            double[] processedSignalValues,
-            List<SegmentBoundary> segmentBoundaries,
-            List<SegmentClassificationResult> classificationResults,
-            List<int> anomalySegmentIndexes,
-            List<SegmentFeatures> featureList)
+            int masterIndex,string fieldName,double[] processedSignalValues,
+            List<SegmentBoundary> segmentBoundaries,List<SegmentClassificationResult> classificationResults,
+            List<int> anomalySegmentIndexes,List<SegmentFeatures> featureList,long flightStartEpochSeconds)
         {
             for (int anomalyIndex = 0; anomalyIndex < anomalySegmentIndexes.Count; anomalyIndex++)
             {
@@ -342,18 +336,16 @@ namespace Analyzer_Service.Services
                     segmentBoundaries,
                     classificationResults,
                     featureList,
-                    segmentIndex);
+                    segmentIndex,
+                    flightStartEpochSeconds);
             }
         }
 
+
         private async Task StoreSingleAnomalyAsync(
-            int masterIndex,
-            string fieldName,
-            double[] processedSignalValues,
-            List<SegmentBoundary> segmentBoundaries,
-            List<SegmentClassificationResult> classificationResults,
-            List<SegmentFeatures> featureList,
-            int segmentIndex)
+            int masterIndex,string fieldName,double[] processedSignalValues,
+            List<SegmentBoundary> segmentBoundaries,List<SegmentClassificationResult> classificationResults,
+            List<SegmentFeatures> featureList,int segmentIndex,long flightStartEpochSeconds)
         {
             SegmentBoundary segmentBoundary = segmentBoundaries[segmentIndex];
             string segmentLabel = classificationResults[segmentIndex].Label;
@@ -364,12 +356,12 @@ namespace Analyzer_Service.Services
                     segmentBoundary,
                     segmentLabel);
 
-            double timestamp = representativeSampleIndex;
+            long anomalyEpochSeconds = flightStartEpochSeconds + (long)representativeSampleIndex;
 
             await flightTelemetryMongoProxy.StoreAnomalyAsync(
                 masterIndex,
                 fieldName,
-                timestamp);
+                anomalyEpochSeconds);
 
             SegmentFeatures segmentFeatures = featureList[segmentIndex];
 
@@ -389,6 +381,7 @@ namespace Analyzer_Service.Services
 
             await flightTelemetryMongoProxy.StoreHistoricalAnomalyAsync(record);
         }
+
 
         private bool DetermineIsNoisyFlight(IReadOnlyList<double> signalValues)
         {

@@ -24,5 +24,7 @@ namespace Analyzer_Service.Models.Interface.Mongo
         Task<List<HistoricalAnomalyRecord>> GetHistoricalCandidatesByParameterAsync(string parameterName, int excludeMasterIndex);
         Task StoreHistoricalSimilarityAsync(int masterIndex,string parameterName,List<HistoricalSimilarityPoint> points);
 
+        Task<long> GetFlightStartEpochSecondsAsync(int masterIndex);
+
     }
 }

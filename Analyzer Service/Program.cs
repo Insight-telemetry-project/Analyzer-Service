@@ -60,7 +60,6 @@ builder.Services.AddSingleton<ITuningSettingsFactory, TuningSettingsFactory>();
 
 
 
-builder.Services.AddMemoryCache();
 
 WebApplication app = builder.Build();
 

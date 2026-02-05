@@ -12,7 +12,9 @@ namespace Analyzer_Service.Models.Interface.Mongo
 
          Task<List<double>> GetParameterValuesCopyAsync(int masterIndex, string parameterName);
 
-        public Task<List<HistoricalAnomalyRecord>> GetFlightPointsByParameterAsync(int masterIndex, string parameterName);
+        Task<List<HistoricalAnomalyRecord>> GetFlightPointsByParameterAsync(int masterIndex, string parameterName);
+
+        Task<long> GetFlightStartEpochSecondsAsync(int masterIndex);
 
     }
 }

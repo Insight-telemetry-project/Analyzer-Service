@@ -9,12 +9,10 @@ namespace Analyzer_Service.Services.Mongo
     public class PrepareFlightData: IPrepareFlightData
     {
         private readonly IFlightTelemetryMongoProxy _telemetryMongo;
-        private readonly IMemoryCache _memoryCache;
 
-        public PrepareFlightData(IFlightTelemetryMongoProxy telemetryMongo, IMemoryCache memoryCache)
+        public PrepareFlightData(IFlightTelemetryMongoProxy telemetryMongo)
         {
             _telemetryMongo = telemetryMongo;
-            _memoryCache = memoryCache;
         }
 
         public async Task<SignalSeries> PrepareFlightDataAsync(int masterIndex, string xParameter, string yParameter)
@@ -92,23 +90,8 @@ namespace Analyzer_Service.Services.Mongo
 
         private async Task<List<HistoricalAnomalyRecord>> GetAllHistoricalPointsByFlightAsync(int masterIndex)
         {
-            string cacheKey = "HistoricalAnomalies:MasterIndex:" + masterIndex.ToString();
-
-            List<HistoricalAnomalyRecord> cachedResults;
-            if (_memoryCache.TryGetValue(cacheKey, out cachedResults))
-            {
-                return cachedResults;
-            }
-
             List<HistoricalAnomalyRecord> results =
                 await _telemetryMongo.GetAllPointsByFlightNumber(masterIndex);
-
-            MemoryCacheEntryOptions cacheOptions = new MemoryCacheEntryOptions()
-                .SetAbsoluteExpiration(TimeSpan.FromMinutes(10))
-                .SetSlidingExpiration(TimeSpan.FromMinutes(2));
-
-            _memoryCache.Set(cacheKey, results, cacheOptions);
-
             return results;
         }
 
@@ -129,6 +112,12 @@ namespace Analyzer_Service.Services.Mongo
             }
 
             return filtered;
+        }
+
+        public async Task<long> GetFlightStartEpochSecondsAsync(int masterIndex)
+        {
+            long startEpoch = await _telemetryMongo.GetFlightStartEpochSecondsAsync(masterIndex);
+            return startEpoch;
         }
 
     }
