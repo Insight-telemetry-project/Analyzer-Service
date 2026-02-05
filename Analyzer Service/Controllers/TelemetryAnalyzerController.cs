@@ -16,6 +16,7 @@ namespace Analyzer_Service.Controllers
         private readonly IFlightCausality _flightCausality;
         private readonly ISegmentClassificationService _segmentClassifier;
         private readonly IHistoricalAnomalySimilarityService _historicalSimilarityService;
+        private readonly IFlightPhaseAnalysisService _phaseAnalysis;
 
 
         private readonly IFlightPhaseDetector _flightPhaseDetector;
@@ -25,14 +26,16 @@ namespace Analyzer_Service.Controllers
             IFlightCausality flightCausalityService,
             ISegmentClassificationService segmentClassifier,
             IHistoricalAnomalySimilarityService historicalSimilarityService,
-            IFlightPhaseDetector flightPhaseDetector
-
+            IFlightPhaseDetector flightPhaseDetector,
+            IFlightPhaseAnalysisService phaseAnalysis
 )
         {
             _flightCausality = flightCausalityService;
             _segmentClassifier = segmentClassifier;
             _historicalSimilarityService = historicalSimilarityService;
             _flightPhaseDetector = flightPhaseDetector;
+            _phaseAnalysis = phaseAnalysis;
+
         }
 
 
@@ -70,13 +73,21 @@ namespace Analyzer_Service.Controllers
         [HttpGet("segments-with-anomalies-phases/{flightId}/{fieldName}")]
         public async Task<IActionResult> AnalyzeFlightSegmentsByPhases(int flightId, string fieldName)
         {
-            SegmentAnalysisResult full =
-                await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, 0,flightStatus.FullFlight);
+            //SegmentAnalysisResult full =
+            //    await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, 0,flightStatus.FullFlight);
 
-            FlightPhaseIndexes phaseIndexes = _flightPhaseDetector.Detect(full);
+            //FlightPhaseIndexes phaseIndexes = _flightPhaseDetector.Detect(full);
+
+            //int takeoffEndIndex = phaseIndexes.TakeoffEndIndex;
+            //int landingStartIndex = phaseIndexes.LandingStartIndex;
+
+
+            FlightPhaseIndexes phaseIndexes = await _phaseAnalysis.GetPhaseIndexesAsync(flightId, fieldName);
 
             int takeoffEndIndex = phaseIndexes.TakeoffEndIndex;
             int landingStartIndex = phaseIndexes.LandingStartIndex;
+
+
 
             SegmentAnalysisResult takeoff =
                 await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, takeoffEndIndex, flightStatus.TakeOf_Landing);

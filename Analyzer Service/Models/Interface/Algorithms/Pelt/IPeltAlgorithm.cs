@@ -4,7 +4,7 @@
     {
         public interface IPeltAlgorithm
         {
-            public List<int> DetectChangePoints(List<double> values,int minSegmentSamples,int jump,double penaltyBeta);
+            public List<int> DetectChangePoints(double[] values,int minSegmentSamples,int jump,double penaltyBeta);
         }
     }
 

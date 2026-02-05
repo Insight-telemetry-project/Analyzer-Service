@@ -249,6 +249,38 @@ namespace Analyzer_Service.Services.Mongo
 
             return firstTimestep.Value;
         }
+        public async Task<List<double>> GetParameterSeriesAsync(int masterIndex, string parameterName)
+        {
+            FilterDefinition<TelemetrySensorFields> filter =
+                Builders<TelemetrySensorFields>.Filter.Eq(record => record.MasterIndex, masterIndex);
+
+            ProjectionDefinition<TelemetrySensorFields, double?> projection =
+                Builders<TelemetrySensorFields>.Projection.Expression(record =>
+                    record.Fields != null && record.Fields.ContainsKey(parameterName)
+                        ? (double?)record.Fields[parameterName]
+                        : null);
+
+            List<double?> valuesNullable =
+                await _telemetryFields
+                    .Find(filter)
+                    .SortBy(record => record.Timestep)
+                    .Project(projection)
+                    .ToListAsync();
+
+            List<double> values = new List<double>(valuesNullable.Count);
+
+            for (int index = 0; index < valuesNullable.Count; index++)
+            {
+                double? value = valuesNullable[index];
+                if (value.HasValue)
+                {
+                    values.Add(value.Value);
+                }
+            }
+
+            return values;
+        }
+
 
     }
 }

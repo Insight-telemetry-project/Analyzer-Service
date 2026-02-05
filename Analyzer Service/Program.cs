@@ -57,7 +57,7 @@ builder.Services.AddSingleton<IFlightPhaseDetector, FlightPhaseDetector>();
 builder.Services.AddSingleton<IFlightPhaseDetectorUtils, FlightPhaseDetectorUtils>();
 
 builder.Services.AddSingleton<ITuningSettingsFactory, TuningSettingsFactory>();
-
+builder.Services.AddTransient<IFlightPhaseAnalysisService, FlightPhaseAnalysisService>();
 
 
 

@@ -1,6 +1,6 @@
-﻿using Analyzer_Service.Models.Dto;
-using Analyzer_Service.Models.Interface.Algorithms.Pelt;
+﻿using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt.Analyzer_Service.Models.Interface.Algorithms.Pelt;
+using System.Buffers;
 
 namespace Analyzer_Service.Services.Algorithms.Pelt
 {
@@ -13,200 +13,258 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             this.costFunction = costFunction;
         }
 
-
-
-        public List<int> DetectChangePoints( List<double> signalValues, int minimumSegmentLength, int jumpSize, double penaltyBeta)
+        public List<int> DetectChangePoints(double[] signalValues, int minimumSegmentLength, int jumpSize, double penaltyBeta)
         {
             costFunction.Fit(signalValues);
 
-            int sampleCount = signalValues.Count;
-            int effectiveMinimumSegmentLength =
-                Math.Max(minimumSegmentLength, costFunction.MinimumSize);
-
-            Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint =
-                new Dictionary<int, Dictionary<SegmentBoundary, double>>();
-
-            Dictionary<SegmentBoundary, double> initialPartition =
-                new Dictionary<SegmentBoundary, double>
-                {
-                    [new SegmentBoundary(0, 0)] = 0.0
-                };
-
-            partitionsByEndpoint[0] = initialPartition;
-
-            List<int> admissibleEndpoints = new List<int>();
-            List<int> candidateBreakpoints =
-                GenerateCandidateBreakpoints(sampleCount, effectiveMinimumSegmentLength, jumpSize);
-
-            foreach (int breakpoint in candidateBreakpoints)
+            int sampleCount = signalValues.Length;
+            if (sampleCount <= 0)
             {
-                admissibleEndpoints = ProcessBreakpoint(
-                    breakpoint,
-                    admissibleEndpoints,
-                    partitionsByEndpoint,
-                    effectiveMinimumSegmentLength,
-                    jumpSize,
-                    penaltyBeta);
+                return new List<int> { 0 };
             }
 
-            int bestEndpoint =
-                partitionsByEndpoint.Keys.Where(key => key <= sampleCount).Max();
-
-            Dictionary<SegmentBoundary, double> finalPartition =
-                partitionsByEndpoint[bestEndpoint];
-
-            finalPartition.Remove(new SegmentBoundary(0, 0));
-
-            List<int> breakpoints = ExtractBreakpoints(finalPartition);
-            breakpoints.Sort();
-            return breakpoints;
-        }
-
-
-        private List<int> ProcessBreakpoint(
-            int breakpoint,
-            List<int> admissibleEndpoints,
-            Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint,
-            int effectiveMinimumSegmentLength,
-            int jumpSize,
-            double penaltyBeta)
-        {
-            int newAdmissiblePoint =
-                (int)Math.Floor((breakpoint - effectiveMinimumSegmentLength) / (double)jumpSize);
-
-            newAdmissiblePoint *= jumpSize;
-            if (newAdmissiblePoint < 0)
+            int effectiveMinimumSegmentLength = Math.Max(minimumSegmentLength, costFunction.MinimumSize);
+            if (effectiveMinimumSegmentLength < 1)
             {
-                newAdmissiblePoint = 0;
+                effectiveMinimumSegmentLength = 1;
             }
 
-            admissibleEndpoints.Add(newAdmissiblePoint);
-
-            List<Dictionary<SegmentBoundary, double>> evaluatedPartitions =
-                EvaluateSubproblems(breakpoint, admissibleEndpoints, partitionsByEndpoint, penaltyBeta);
-
-            Dictionary<SegmentBoundary, double> bestPartition = null;
-            double bestCost = double.PositiveInfinity;
-
-            foreach (Dictionary<SegmentBoundary, double> partition in evaluatedPartitions)
+            if (jumpSize < 1)
             {
-                double cost = SumPartitionCost(partition);
-
-                if (cost < bestCost)
-                {
-                    bestCost = cost;
-                    bestPartition = partition;
-                }
+                jumpSize = 1;
             }
 
-            if (bestPartition != null)
-            {
-                partitionsByEndpoint[breakpoint] = bestPartition;
+            List<int> candidateEndpoints = GenerateCandidateEndpoints(sampleCount, effectiveMinimumSegmentLength, jumpSize);
 
-                admissibleEndpoints =
-                    PruneAdmissibleEndpoints(admissibleEndpoints, evaluatedPartitions, bestCost, penaltyBeta);
+            double[] bestCostByIndex = new double[sampleCount + 1];
+            int[] bestPreviousByIndex = new int[sampleCount + 1];
+            bool[] isAdmissibleIndex = new bool[sampleCount + 1];
+
+            for (int index = 0; index <= sampleCount; index++)
+            {
+                bestCostByIndex[index] = double.PositiveInfinity;
+                bestPreviousByIndex[index] = -1;
             }
 
-            return admissibleEndpoints;
-        }
+            bestCostByIndex[0] = 0.0;
+            bestPreviousByIndex[0] = 0;
 
+            List<int> admissibleStartIndices = new List<int>(Math.Max(8, candidateEndpoints.Count));
+            admissibleStartIndices.Add(0);
+            isAdmissibleIndex[0] = true;
 
-        private List<int> GenerateCandidateBreakpoints(int sampleCount, int minimumLength, int jumpSize)
-        {
-            List<int> breakpoints = new List<int>();
-            int index = 0;
-
-            while (index < sampleCount)
+            for (int candidateIndex = 0; candidateIndex < candidateEndpoints.Count; candidateIndex++)
             {
-                if (index >= minimumLength)
-                {
-                    breakpoints.Add(index);
-                }
-                index += jumpSize;
-            }
+                int segmentEndIndex = candidateEndpoints[candidateIndex];
 
-            if (breakpoints.Count == 0 || breakpoints[^1] != sampleCount)
-            {
-                breakpoints.Add(sampleCount);
-            }
-
-            return breakpoints;
-        }
-
-        private List<Dictionary<SegmentBoundary, double>> EvaluateSubproblems(
-            int breakpoint,
-            List<int> admissibleEndpoints,
-            Dictionary<int, Dictionary<SegmentBoundary, double>> partitionsByEndpoint,
-            double penaltyBeta)
-        {
-            List<Dictionary<SegmentBoundary, double>> expanded = new List<Dictionary<SegmentBoundary, double>>();
-
-            foreach (int startIndex in admissibleEndpoints)
-            {
-                if (!partitionsByEndpoint.TryGetValue(startIndex, out Dictionary<SegmentBoundary, double> leftPartition))
+                if (segmentEndIndex < effectiveMinimumSegmentLength)
                 {
                     continue;
                 }
 
-                Dictionary<SegmentBoundary, double> newPartition =
-                    new Dictionary<SegmentBoundary, double>(leftPartition);
-
-                double segmentCost = costFunction.ComputeError(startIndex, breakpoint) + penaltyBeta;
-                newPartition[new SegmentBoundary(startIndex, breakpoint)] = segmentCost;
-
-                expanded.Add(newPartition);
-            }
-
-            return expanded;
-        }
-
-        private List<int> PruneAdmissibleEndpoints(
-            List<int> currentEndpoints,
-            List<Dictionary<SegmentBoundary, double>> evaluatedPartitions,
-            double bestCost,
-            double penaltyBeta)
-        {
-            List<int> pruned = new List<int>();
-
-            for (int indexEndpoints = 0; indexEndpoints < currentEndpoints.Count; indexEndpoints++)
-            {
-                double partitionCost = SumPartitionCost(evaluatedPartitions[indexEndpoints]);
-
-                if (partitionCost <= bestCost + penaltyBeta)
+                int newAdmissibleStartIndex = ((segmentEndIndex - effectiveMinimumSegmentLength) / jumpSize) * jumpSize;
+                if (newAdmissibleStartIndex < 0)
                 {
-                    pruned.Add(currentEndpoints[indexEndpoints]);
+                    newAdmissibleStartIndex = 0;
+                }
+
+                if (!isAdmissibleIndex[newAdmissibleStartIndex])
+                {
+                    admissibleStartIndices.Add(newAdmissibleStartIndex);
+                    isAdmissibleIndex[newAdmissibleStartIndex] = true;
+                }
+
+                int admissibleCount = admissibleStartIndices.Count;
+                double[] segmentCostsBuffer = ArrayPool<double>.Shared.Rent(admissibleCount);
+
+                double bestTotalCost = double.PositiveInfinity;
+                int bestStartIndex = -1;
+
+                try
+                {
+                    for (int startCandidatePosition = 0; startCandidatePosition < admissibleCount; startCandidatePosition++)
+                    {
+                        int segmentStartIndex = admissibleStartIndices[startCandidatePosition];
+
+                        double segmentCost = double.PositiveInfinity;
+
+                        if (segmentStartIndex != segmentEndIndex &&
+                            (segmentEndIndex - segmentStartIndex) >= effectiveMinimumSegmentLength &&
+                            !double.IsPositiveInfinity(bestCostByIndex[segmentStartIndex]))
+                        {
+                            segmentCost = costFunction.ComputeError(segmentStartIndex, segmentEndIndex);
+                        }
+
+                        segmentCostsBuffer[startCandidatePosition] = segmentCost;
+
+                        if (double.IsPositiveInfinity(segmentCost))
+                        {
+                            continue;
+                        }
+
+                        double totalCost = bestCostByIndex[segmentStartIndex] + segmentCost + penaltyBeta;
+
+                        if (totalCost < bestTotalCost)
+                        {
+                            bestTotalCost = totalCost;
+                            bestStartIndex = segmentStartIndex;
+                        }
+                    }
+
+                    if (bestStartIndex == -1)
+                    {
+                        continue;
+                    }
+
+                    bestCostByIndex[segmentEndIndex] = bestTotalCost;
+                    bestPreviousByIndex[segmentEndIndex] = bestStartIndex;
+
+                    List<int> prunedAdmissibleStartIndices = new List<int>(admissibleCount);
+
+                    for (int startCandidatePosition = 0; startCandidatePosition < admissibleCount; startCandidatePosition++)
+                    {
+                        int segmentStartIndex = admissibleStartIndices[startCandidatePosition];
+
+                        if (segmentStartIndex == segmentEndIndex)
+                        {
+                            continue;
+                        }
+
+                        double segmentCost = segmentCostsBuffer[startCandidatePosition];
+
+                        if (double.IsPositiveInfinity(segmentCost) || double.IsPositiveInfinity(bestCostByIndex[segmentStartIndex]))
+                        {
+                            isAdmissibleIndex[segmentStartIndex] = false;
+                            continue;
+                        }
+
+                        double totalCost = bestCostByIndex[segmentStartIndex] + segmentCost + penaltyBeta;
+
+                        if (totalCost <= bestTotalCost + penaltyBeta)
+                        {
+                            prunedAdmissibleStartIndices.Add(segmentStartIndex);
+                        }
+                        else
+                        {
+                            isAdmissibleIndex[segmentStartIndex] = false;
+                        }
+                    }
+
+                    if (!isAdmissibleIndex[newAdmissibleStartIndex])
+                    {
+                        prunedAdmissibleStartIndices.Add(newAdmissibleStartIndex);
+                        isAdmissibleIndex[newAdmissibleStartIndex] = true;
+                    }
+                    else
+                    {
+                        bool exists = false;
+                        for (int index = 0; index < prunedAdmissibleStartIndices.Count; index++)
+                        {
+                            if (prunedAdmissibleStartIndices[index] == newAdmissibleStartIndex)
+                            {
+                                exists = true;
+                                break;
+                            }
+                        }
+
+                        if (!exists)
+                        {
+                            prunedAdmissibleStartIndices.Add(newAdmissibleStartIndex);
+                        }
+                    }
+
+                    admissibleStartIndices = prunedAdmissibleStartIndices;
+                }
+                finally
+                {
+                    ArrayPool<double>.Shared.Return(segmentCostsBuffer, true);
                 }
             }
 
-            return pruned;
-        }
-
-        private double SumPartitionCost(Dictionary<SegmentBoundary, double> partition)
-        {
-            double total = 0.0;
-
-            foreach (double cost in partition.Values)
+            int chosenEndIndex = sampleCount;
+            if (bestPreviousByIndex[chosenEndIndex] == -1)
             {
-                total += cost;
+                int lastReachableCandidate = -1;
+
+                for (int index = candidateEndpoints.Count - 1; index >= 0; index--)
+                {
+                    int endpoint = candidateEndpoints[index];
+                    if (!double.IsPositiveInfinity(bestCostByIndex[endpoint]))
+                    {
+                        lastReachableCandidate = endpoint;
+                        break;
+                    }
+                }
+
+                if (lastReachableCandidate == -1)
+                {
+                    return new List<int> { sampleCount };
+                }
+
+                chosenEndIndex = lastReachableCandidate;
             }
 
-            return total;
+            List<int> breakpoints = BacktrackBreakpoints(bestPreviousByIndex, chosenEndIndex);
+
+            if (breakpoints.Count == 0)
+            {
+                breakpoints.Add(sampleCount);
+            }
+            else
+            {
+                int lastBreakpointPosition = breakpoints.Count - 1;
+                if (breakpoints[lastBreakpointPosition] != sampleCount)
+                {
+                    breakpoints[lastBreakpointPosition] = sampleCount;
+                }
+            }
+
+            breakpoints.Sort();
+            return breakpoints;
         }
 
-        private List<int> ExtractBreakpoints(Dictionary<SegmentBoundary, double> finalPartition)
+        private List<int> GenerateCandidateEndpoints(int sampleCount, int minimumLength, int jumpSize)
+        {
+            List<int> candidateEndpoints = new List<int>();
+
+            int currentIndex = 0;
+            while (currentIndex < sampleCount)
+            {
+                if (currentIndex >= minimumLength)
+                {
+                    candidateEndpoints.Add(currentIndex);
+                }
+
+                currentIndex += jumpSize;
+            }
+
+            if (candidateEndpoints.Count == 0 || candidateEndpoints[candidateEndpoints.Count - 1] != sampleCount)
+            {
+                candidateEndpoints.Add(sampleCount);
+            }
+
+            return candidateEndpoints;
+        }
+
+        private List<int> BacktrackBreakpoints(int[] bestPreviousByIndex, int endIndex)
         {
             List<int> breakpoints = new List<int>();
 
-            foreach (SegmentBoundary boundary in finalPartition.Keys)
+            int currentIndex = endIndex;
+            while (currentIndex > 0)
             {
-                if (boundary.EndIndex != 0)  
+                breakpoints.Add(currentIndex);
+
+                int previousIndex = bestPreviousByIndex[currentIndex];
+                if (previousIndex <= 0)
                 {
-                    breakpoints.Add(boundary.EndIndex);
+                    break;
                 }
+
+                currentIndex = previousIndex;
             }
 
             return breakpoints;
         }
-
     }
 }

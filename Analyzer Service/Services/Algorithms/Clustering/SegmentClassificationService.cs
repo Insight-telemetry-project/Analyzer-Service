@@ -94,23 +94,7 @@ namespace Analyzer_Service.Services
             return segments;
         }
 
-        private double[] PreprocessSignal(IReadOnlyList<double> signalValues)
-        {
-            if (!IsNoisy)
-            {
-                double[] filteredSignal =
-                    signalProcessingUtility.ApplyHampel(
-                        signalValues,
-                        ConstantAlgorithm.HAMPEL_WINDOW,
-                        ConstantAlgorithm.HAMPEL_SIGMA);
-
-                double[] normalizedSignal = signalProcessingUtility.ApplyZScore(filteredSignal);
-                return normalizedSignal;
-            }
-
-            double[] normalizedSignalValues = signalProcessingUtility.ApplyZScore(signalValues);
-            return normalizedSignalValues;
-        }
+        
 
 
         public async Task<SegmentAnalysisResult> ClassifyWithAnomaliesAsync(
