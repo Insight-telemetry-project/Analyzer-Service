@@ -74,7 +74,7 @@ namespace Analyzer_Service.Controllers
         public async Task<IActionResult> AnalyzeFlightSegmentsByPhases(int flightId, string fieldName)
         {
             //SegmentAnalysisResult full =
-            //    await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, 0,flightStatus.FullFlight);
+            //    await _segmentClassifier.ClassifyWithAnomaliesAsync(flightId, fieldName, 0, 0, flightStatus.FullFlight);
 
             //FlightPhaseIndexes phaseIndexes = _flightPhaseDetector.Detect(full);
 
