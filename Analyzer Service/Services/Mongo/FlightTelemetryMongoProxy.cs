@@ -249,7 +249,41 @@ namespace Analyzer_Service.Services.Mongo
 
             return firstTimestep.Value;
         }
-        public async Task<List<double>> GetParameterSeriesAsync(int masterIndex, string parameterName)
+        //public async Task<List<double>> GetParameterSeriesAsync(int masterIndex, string parameterName)
+        //{
+        //    FilterDefinition<TelemetrySensorFields> filter =
+        //        Builders<TelemetrySensorFields>.Filter.Eq(record => record.MasterIndex, masterIndex);
+
+        //    ProjectionDefinition<TelemetrySensorFields, double?> projection =
+        //        Builders<TelemetrySensorFields>.Projection.Expression(record =>
+        //            record.Fields != null && record.Fields.ContainsKey(parameterName)
+        //                ? (double?)record.Fields[parameterName]
+        //                : null);
+
+        //    List<double?> valuesNullable =
+        //        await _telemetryFields
+        //            .Find(filter)
+        //            .SortBy(record => record.Timestep)
+        //            .Project(projection)
+        //            .ToListAsync();
+
+        //    List<double> values = new List<double>(valuesNullable.Count);
+
+        //    for (int index = 0; index < valuesNullable.Count; index++)
+        //    {
+        //        double? value = valuesNullable[index];
+        //        if (value.HasValue)
+        //        {
+        //            values.Add(value.Value);
+        //        }
+        //    }
+
+        //    return values;
+        //}
+
+
+
+        public async Task<double[]> GetParameterSeriesAsync(int masterIndex, string parameterName)
         {
             FilterDefinition<TelemetrySensorFields> filter =
                 Builders<TelemetrySensorFields>.Filter.Eq(record => record.MasterIndex, masterIndex);
@@ -267,18 +301,31 @@ namespace Analyzer_Service.Services.Mongo
                     .Project(projection)
                     .ToListAsync();
 
-            List<double> values = new List<double>(valuesNullable.Count);
+            int count = valuesNullable.Count;
 
-            for (int index = 0; index < valuesNullable.Count; index++)
+            double[] values = new double[count];
+
+            int targetIndex = 0;
+
+            for (int sourceIndex = 0; sourceIndex < count; sourceIndex++)
             {
-                double? value = valuesNullable[index];
+                double? value = valuesNullable[sourceIndex];
                 if (value.HasValue)
                 {
-                    values.Add(value.Value);
+                    values[targetIndex] = value.Value;
+                    targetIndex++;
                 }
             }
 
-            return values;
+            if (targetIndex == count)
+            {
+                return values;
+            }
+
+            double[] trimmed = new double[targetIndex];
+            Array.Copy(values, trimmed, targetIndex);
+
+            return trimmed;
         }
 
 

@@ -55,17 +55,18 @@ namespace Analyzer_Service.Services
             this.tuningSettingsFactory = tuningSettingsFactory;
         }
 
-        private async Task<IReadOnlyList<double>> LoadSignalValuesAsync(int masterIndex, string fieldName)
+        private async Task<double[]> LoadSignalValuesAsync(int masterIndex, string fieldName)
         {
-            IReadOnlyList<double> readOnlyValues =
+            double[] values =
                 await flightDataPreparer.GetParameterValuesAsync(masterIndex, fieldName);
 
-            return readOnlyValues;
+            return values;
         }
 
 
 
-        
+
+
 
         private async Task<List<SegmentBoundary>> DetectSegments(
             int masterIndex,
@@ -101,8 +102,7 @@ namespace Analyzer_Service.Services
             int masterIndex,string fieldName,
             int startIndex,int endIndex,flightStatus status)
         {
-            IReadOnlyList<double> rawSignalValues =
-                await LoadSignalValuesAsync(masterIndex, fieldName);
+            double[] rawSignalValues = await LoadSignalValuesAsync(masterIndex, fieldName);
 
             bool isNoisyFlight = DetermineIsNoisyFlight(rawSignalValues);
             IsNoisy = isNoisyFlight;
@@ -113,7 +113,7 @@ namespace Analyzer_Service.Services
                 await DetectSegments(
                     masterIndex,
                     fieldName,
-                    rawSignalValues.Count,
+                    rawSignalValues.Length,
                     status);
 
             int processedLength;
@@ -369,16 +369,16 @@ namespace Analyzer_Service.Services
         }
 
 
-        private bool DetermineIsNoisyFlight(IReadOnlyList<double> signalValues)
+        private bool DetermineIsNoisyFlight(double[] signalValues)
         {
-            if (signalValues.Count < 2)
+            if (signalValues.Length < 2)
             {
                 return false;
             }
 
-            double[] diffs = new double[signalValues.Count - 1];
+            double[] diffs = new double[signalValues.Length - 1];
 
-            for (int sampleIndex = 1; sampleIndex < signalValues.Count; sampleIndex++)
+            for (int sampleIndex = 1; sampleIndex < signalValues.Length; sampleIndex++)
             {
                 double currentValue = signalValues[sampleIndex];
                 double previousValue = signalValues[sampleIndex - 1];

@@ -7,9 +7,9 @@ namespace Analyzer_Service.Services.Algorithms
 {
     public class SignalProcessingUtility : ISignalProcessingUtility
     {
-        public double[] ApplyHampel(IReadOnlyList<double> inputValues, int windowSize, double sigma)
+        public double[] ApplyHampel(double[] inputValues, int windowSize, double sigma)
         {
-            int totalValueCount = inputValues.Count;
+            int totalValueCount = inputValues.Length;
 
             if (windowSize % 2 == 0)
             {
@@ -92,9 +92,9 @@ namespace Analyzer_Service.Services.Algorithms
 
 
 
-        public double[] ApplyZScore(IReadOnlyList<double> values)
+        public double[] ApplyZScore(double[] values)
         {
-            int count = values.Count;
+            int count = values.Length;
 
             double sum = 0.0;
             for (int index = 0; index < count; index++)
@@ -146,9 +146,9 @@ namespace Analyzer_Service.Services.Algorithms
 
             return 0.5 * (buffer[midIndex - 1] + buffer[midIndex]);
         }
-        public double[] ApplyZScorePooled(IReadOnlyList<double> values, out int length)
+        public double[] ApplyZScorePooled(double[] values, out int length)
         {
-            length = values.Count;
+            length = values.Length;
 
             double sum = 0.0;
             for (int index = 0; index < length; index++)

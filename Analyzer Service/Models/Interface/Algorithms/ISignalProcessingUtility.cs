@@ -2,14 +2,14 @@
 {
     public interface ISignalProcessingUtility
     {
-        double[] ApplyHampel(IReadOnlyList<double> inputValues, int windowSize, double sigma);
+        double[] ApplyHampel(double[] inputValues, int windowSize, double sigma);
 
-        double[] ApplyZScore(IReadOnlyList<double> values);
+        double[] ApplyZScore(double[] values);
 
         double ComputeMedian(double[] values);
 
         double ComputeMedian(double[] buffer, int length);
-        double[] ApplyZScorePooled(IReadOnlyList<double> values, out int length);
+        double[] ApplyZScorePooled(double[] values, out int length);
 
     }
 }
