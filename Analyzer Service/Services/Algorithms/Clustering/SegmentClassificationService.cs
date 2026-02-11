@@ -193,7 +193,9 @@ namespace Analyzer_Service.Services
 
             if (status == flightStatus.TakeOf_Landing)
             {
-                return detectedSegmentIndexes.Take(10).ToList();
+                //return detectedSegmentIndexes.Take(10).ToList();
+                return detectedSegmentIndexes.ToList();
+
             }
 
             if (!IsNoisy)

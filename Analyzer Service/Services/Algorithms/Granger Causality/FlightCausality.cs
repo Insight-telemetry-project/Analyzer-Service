@@ -170,21 +170,24 @@ namespace Analyzer_Service.Services.Algorithms
             double grangerScore = 0.0;
             double ccmScore = 0.0;
 
-            if (algorithm == CausalityAlgorithm.Granger)
-            {
-                grangerScore = grangerCausalityAnalyzer
-                    .ComputeCausality(sourceSeries, targetSeries, lagCount);
-            }
 
-            if (algorithm == CausalityAlgorithm.Ccm)
-            {
-                ccmScore = ccmCausalityAnalyzer
-                    .ComputeCausality(
-                        sourceSeries,
-                        targetSeries,
-                        embeddingDimension,
-                        embeddingDelay);
-            }
+            grangerScore = grangerCausalityAnalyzer
+                    .ComputeCausality(sourceSeries, targetSeries, lagCount);
+            //if (algorithm == CausalityAlgorithm.Granger)
+            //{
+            //    grangerScore = grangerCausalityAnalyzer
+            //        .ComputeCausality(sourceSeries, targetSeries, lagCount);
+            //}
+
+            //if (algorithm == CausalityAlgorithm.Ccm)
+            //{
+            //    ccmScore = ccmCausalityAnalyzer
+            //        .ComputeCausality(
+            //            sourceSeries,
+            //            targetSeries,
+            //            embeddingDimension,
+            //            embeddingDelay);
+            //}
 
             bool shouldStore = (algorithm == CausalityAlgorithm.Granger &&grangerScore >= ConstantAlgorithm.GRANGER_CAUSALITY_THRESHOLD)||
                 (algorithm == CausalityAlgorithm.Ccm &&ccmScore >= ConstantAlgorithm.CCM_CAUSALITY_THRESHOLD)||
