@@ -68,34 +68,34 @@ namespace Analyzer_Service.Services
 
 
 
-        private async Task<List<SegmentBoundary>> DetectSegments(
-            int masterIndex,
-            string fieldName,
-            int totalSampleCount,
-            flightStatus status)
+        private List<SegmentBoundary> DetectSegments(
+            double[] rawSignalValues,flightStatus status)
         {
             List<int> rawChangePointIndexes =
-                await changePointDetectionService.DetectChangePointsAsync(masterIndex, fieldName, status);
+                changePointDetectionService.DetectChangePoints(rawSignalValues, status);
 
             List<int> cleanedChangePointIndexes =
                 rawChangePointIndexes
                     .Distinct()
-                    .Where(changePointIndex => changePointIndex > 0 && changePointIndex < totalSampleCount)
-                    .OrderBy(changePointIndex => changePointIndex)
+                    .Where(index => index > 0 && index < rawSignalValues.Length)
+                    .OrderBy(index => index)
                     .ToList();
 
-            if (!cleanedChangePointIndexes.Contains(totalSampleCount))
+            if (!cleanedChangePointIndexes.Contains(rawSignalValues.Length))
             {
-                cleanedChangePointIndexes.Add(totalSampleCount);
+                cleanedChangePointIndexes.Add(rawSignalValues.Length);
             }
 
             List<SegmentBoundary> segments =
-                featureExtractionUtility.BuildSegmentsFromPoints(cleanedChangePointIndexes, totalSampleCount);
+                featureExtractionUtility.BuildSegmentsFromPoints(
+                    cleanedChangePointIndexes,
+                    rawSignalValues.Length);
 
             return segments;
         }
 
-        
+
+
 
 
         public async Task<SegmentAnalysisResult> ClassifyWithAnomaliesAsync(
@@ -110,17 +110,15 @@ namespace Analyzer_Service.Services
             signalNoiseTuning.ApplyHighNoiseConfiguration();
 
             List<SegmentBoundary> detectedSegments =
-                await DetectSegments(
-                    masterIndex,
-                    fieldName,
-                    rawSignalValues.Length,
-                    status);
+                DetectSegments(rawSignalValues,status);
 
-            int processedLength;
+
+            //int processedLength;
             double[] processedSignalValues =
-                signalProcessingUtility.ApplyZScorePooled(
-                    rawSignalValues,
-                    out processedLength);
+                signalProcessingUtility.ApplyZScore(
+                    rawSignalValues
+                    //,out processedLength
+                    );
 
             List<SegmentClassificationResult> segmentClassificationResults =
                 BuildMergedSegmentResults(

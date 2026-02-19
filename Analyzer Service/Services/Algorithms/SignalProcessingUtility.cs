@@ -19,51 +19,54 @@ namespace Analyzer_Service.Services.Algorithms
             int halfWindowSize = windowSize / 2;
 
             double[] filteredOutputValues = new double[totalValueCount];
-            for (int index = 0; index < totalValueCount; index++)
-            {
-                filteredOutputValues[index] = inputValues[index];
-            }
+            Array.Copy(inputValues, filteredOutputValues, totalValueCount);
 
             double[] windowBuffer = ArrayPool<double>.Shared.Rent(windowSize);
             double[] deviationBuffer = ArrayPool<double>.Shared.Rent(windowSize);
 
-            for (int centerIndex = 0; centerIndex < totalValueCount; centerIndex++)
+            try
             {
-                int windowStartIndex = Math.Max(0, centerIndex - halfWindowSize);
-                int windowEndIndex = Math.Min(totalValueCount - 1, centerIndex + halfWindowSize);
-
-                int currentWindowLength = windowEndIndex - windowStartIndex + 1;
-
-                for (int windowOffset = 0; windowOffset < currentWindowLength; windowOffset++)
+                for (int centerIndex = 0; centerIndex < totalValueCount; centerIndex++)
                 {
-                    windowBuffer[windowOffset] = inputValues[windowStartIndex + windowOffset];
-                }
+                    int windowStartIndex = Math.Max(0, centerIndex - halfWindowSize);
+                    int windowEndIndex = Math.Min(totalValueCount - 1, centerIndex + halfWindowSize);
 
-                double medianValue =
-                    ComputeMedianFromPrefix(windowBuffer, currentWindowLength);
+                    int currentWindowLength = windowEndIndex - windowStartIndex + 1;
 
-                for (int windowOffset = 0; windowOffset < currentWindowLength; windowOffset++)
-                {
-                    deviationBuffer[windowOffset] =
-                        Math.Abs(windowBuffer[windowOffset] - medianValue);
-                }
+                    for (int windowOffset = 0; windowOffset < currentWindowLength; windowOffset++)
+                    {
+                        windowBuffer[windowOffset] =
+                            inputValues[windowStartIndex + windowOffset];
+                    }
 
-                double medianAbsoluteDeviation =
-                    ComputeMedianFromPrefix(deviationBuffer, currentWindowLength);
+                    double medianValue =
+                        ComputeMedianFromPrefix(windowBuffer, currentWindowLength);
 
-                double threshold =
-                    sigma *
-                    ConstantAlgorithm.THRESHOLD_FORMULA *
-                    (medianAbsoluteDeviation + ConstantAlgorithm.EPSILON);
+                    for (int windowOffset = 0; windowOffset < currentWindowLength; windowOffset++)
+                    {
+                        deviationBuffer[windowOffset] =
+                            Math.Abs(windowBuffer[windowOffset] - medianValue);
+                    }
 
-                if (Math.Abs(inputValues[centerIndex] - medianValue) > threshold)
-                {
-                    filteredOutputValues[centerIndex] = medianValue;
+                    double medianAbsoluteDeviation =
+                        ComputeMedianFromPrefix(deviationBuffer, currentWindowLength);
+
+                    double threshold =
+                        sigma *
+                        ConstantAlgorithm.THRESHOLD_FORMULA *
+                        (medianAbsoluteDeviation + ConstantAlgorithm.EPSILON);
+
+                    if (Math.Abs(inputValues[centerIndex] - medianValue) > threshold)
+                    {
+                        filteredOutputValues[centerIndex] = medianValue;
+                    }
                 }
             }
-
-            ArrayPool<double>.Shared.Return(windowBuffer);
-            ArrayPool<double>.Shared.Return(deviationBuffer);
+            finally
+            {
+                ArrayPool<double>.Shared.Return(windowBuffer);
+                ArrayPool<double>.Shared.Return(deviationBuffer);
+            }
 
             return filteredOutputValues;
         }
@@ -71,11 +74,7 @@ namespace Analyzer_Service.Services.Algorithms
         private double ComputeMedianFromPrefix(double[] buffer, int length)
         {
             double[] sortedCopy = new double[length];
-
-            for (int index = 0; index < length; index++)
-            {
-                sortedCopy[index] = buffer[index];
-            }
+            Array.Copy(buffer, sortedCopy, length);
 
             Array.Sort(sortedCopy);
 
@@ -88,9 +87,6 @@ namespace Analyzer_Service.Services.Algorithms
 
             return 0.5 * (sortedCopy[middleIndex - 1] + sortedCopy[middleIndex]);
         }
-
-
-
 
         public double[] ApplyZScore(double[] values)
         {
@@ -118,6 +114,7 @@ namespace Analyzer_Service.Services.Algorithms
             }
 
             double[] output = new double[count];
+
             for (int index = 0; index < count; index++)
             {
                 output[index] = (values[index] - mean) / std;
@@ -125,7 +122,6 @@ namespace Analyzer_Service.Services.Algorithms
 
             return output;
         }
-
 
         public double ComputeMedian(double[] values)
         {
@@ -146,41 +142,5 @@ namespace Analyzer_Service.Services.Algorithms
 
             return 0.5 * (buffer[midIndex - 1] + buffer[midIndex]);
         }
-        public double[] ApplyZScorePooled(double[] values, out int length)
-        {
-            length = values.Length;
-
-            double sum = 0.0;
-            for (int index = 0; index < length; index++)
-            {
-                sum += values[index];
-            }
-
-            double mean = sum / length;
-
-            double varianceSum = 0.0;
-            for (int index = 0; index < length; index++)
-            {
-                double delta = values[index] - mean;
-                varianceSum += delta * delta;
-            }
-
-            double std = Math.Sqrt(varianceSum / length);
-            if (std < ConstantAlgorithm.EPSILON)
-            {
-                std = 1.0;
-            }
-
-            double[] rentedOutput = ArrayPool<double>.Shared.Rent(length);
-
-            for (int index = 0; index < length; index++)
-            {
-                rentedOutput[index] = (values[index] - mean) / std;
-            }
-
-            return rentedOutput;
-        }
-
-
     }
 }

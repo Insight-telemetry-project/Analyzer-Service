@@ -28,43 +28,41 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             this.tuningSettingsFactory = tuningSettingsFactory;
         }
 
-        public async Task<List<int>> DetectChangePointsAsync(int masterIndex, string targetFieldName, flightStatus status)
+        public List<int> DetectChangePoints(
+            double[] rawSignal,flightStatus status)
         {
-            PeltTuningSettings tuningSettings = tuningSettingsFactory.Get(status);
-
-            IReadOnlyList<double> rawSignal = await flightDataPreparer.GetParameterValuesAsync(masterIndex, targetFieldName);
-
-            
-
-            List<double>? rawSignalList = rawSignal as List<double>;
-            
+            PeltTuningSettings tuningSettings =
+                tuningSettingsFactory.Get(status);
 
             double[] cleanedSignal = signalPreprocessor.Apply(
-                rawSignalList,
+                rawSignal,
                 ConstantPelt.HAMPEL_WINDOWSIZE,
                 ConstantPelt.HAMPEL_SIGMA_THRESHOLD);
 
-            int minimumSegmentSamples = (int)Math.Round(tuningSettings.MINIMUM_SEGMENT_DURATION_SECONDS / SamplePeriodSeconds);
+            int minimumSegmentSamples =
+                (int)Math.Round(tuningSettings.MINIMUM_SEGMENT_DURATION_SECONDS / SamplePeriodSeconds);
+
             if (minimumSegmentSamples < 1)
             {
                 minimumSegmentSamples = 1;
             }
 
-            List<int> rawBreakpoints = peltAlgorithm.DetectChangePoints(
-                cleanedSignal,
-                minimumSegmentSamples,
-                tuningSettings.SAMPLING_JUMP,
-                tuningSettings.PENALTY_BETA);
+            List<int> rawBreakpoints =
+                peltAlgorithm.DetectChangePoints(
+                    cleanedSignal,
+                    minimumSegmentSamples,
+                    tuningSettings.SAMPLING_JUMP,
+                    tuningSettings.PENALTY_BETA);
 
-            int minimumGapSamples = (int)Math.Round(tuningSettings.MINIMUM_SEGMENT_DURATION_SECONDS / SamplePeriodSeconds);
-            if (minimumGapSamples < 1)
-            {
-                minimumGapSamples = 1;
-            }
+            List<int> filteredBreakpoints =
+                ApplyMinimumGapBySamples(
+                    rawBreakpoints,
+                    cleanedSignal.Length,
+                    minimumSegmentSamples);
 
-            List<int> filteredBreakpoints = ApplyMinimumGapBySamples(rawBreakpoints, cleanedSignal.Length, minimumGapSamples);
             return filteredBreakpoints;
         }
+
 
         private List<int> ApplyMinimumGapBySamples(List<int> breakpoints, int finalIndex, int minimumGapSamples)
         {

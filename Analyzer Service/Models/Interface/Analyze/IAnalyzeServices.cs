@@ -1,0 +1,6 @@
+﻿namespace Analyzer_Service.Models.Interface.Analyze
+{
+    public interface IAnalyzeServices
+    {
+    }
+}

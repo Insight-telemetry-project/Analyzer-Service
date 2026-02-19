@@ -9,7 +9,5 @@
         double ComputeMedian(double[] values);
 
         double ComputeMedian(double[] buffer, int length);
-        double[] ApplyZScorePooled(double[] values, out int length);
-
     }
 }

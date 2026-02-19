@@ -39,19 +39,18 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
 
         public async Task<FlightPhaseIndexes> GetPhaseIndexesAsync(int flightId, string fieldName)
         {
-            IReadOnlyList<double> rawSignalValues =
+            double[] rawSignalValues =
                 await flightDataPreparer.GetParameterValuesAsync(flightId, fieldName);
 
-            int totalSampleCount = rawSignalValues.Count;
+            int totalSampleCount = rawSignalValues.Length;
             if (totalSampleCount <= 1)
             {
                 return new FlightPhaseIndexes(0, 0);
             }
 
             List<int> rawChangePointIndexes =
-                await changePointDetectionService.DetectChangePointsAsync(
-                    flightId,
-                    fieldName,
+                changePointDetectionService.DetectChangePoints(
+                    rawSignalValues,
                     flightStatus.FullFlight);
 
             List<int> cleanedChangePointIndexes =
@@ -60,41 +59,33 @@ namespace Analyzer_Service.Services.Algorithms.Pelt
             List<SegmentBoundary> detectedSegmentBoundaries =
                 featureExtractionUtility.BuildSegmentsFromPoints(cleanedChangePointIndexes, totalSampleCount);
 
-            int processedLength;
             double[] processedSignalValues =
-                signalProcessingUtility.ApplyZScorePooled(rawSignalValues, out processedLength);
+                signalProcessingUtility.ApplyZScore(rawSignalValues);
 
-            try
+            List<SegmentClassificationResult> segmentResults =
+                BuildSegmentResults(processedSignalValues, detectedSegmentBoundaries);
+
+            List<SegmentBoundary> mergedSegmentBoundaries =
+                ExtractSegmentBoundaries(segmentResults);
+
+            List<SegmentFeatures> segmentFeatures =
+                BuildSegmentFeatures(processedSignalValues, mergedSegmentBoundaries);
+
+            AttachFeatures(segmentResults, segmentFeatures);
+
+            SegmentAnalysisResult phaseBase = new SegmentAnalysisResult
             {
-                List<SegmentClassificationResult> segmentResults =
-                    BuildSegmentResults(processedSignalValues, detectedSegmentBoundaries);
+                Segments = segmentResults,
+                SegmentBoundaries = mergedSegmentBoundaries,
+                AnomalyIndexes = new List<int>(0)
+            };
 
-                List<SegmentBoundary> mergedSegmentBoundaries =
-                    ExtractSegmentBoundaries(segmentResults);
+            FlightPhaseIndexes phaseIndexes =
+                flightPhaseDetector.Detect(phaseBase);
 
-                List<SegmentFeatures> segmentFeatures =
-                    BuildSegmentFeatures(processedSignalValues, mergedSegmentBoundaries);
-
-                AttachFeatures(segmentResults, segmentFeatures);
-
-                SegmentAnalysisResult phaseBase = new SegmentAnalysisResult
-                {
-                    Segments = segmentResults,
-                    SegmentBoundaries = mergedSegmentBoundaries,
-                    AnomalyIndexes = new List<int>(0)
-                };
-
-                FlightPhaseIndexes phaseIndexes = flightPhaseDetector.Detect(phaseBase);
-                return phaseIndexes;
-            }
-            finally
-            {
-                if (processedSignalValues != null && processedSignalValues.Length > 0)
-                {
-                    ArrayPool<double>.Shared.Return(processedSignalValues, false);
-                }
-            }
+            return phaseIndexes;
         }
+
 
         private List<int> CleanAndFinalizeChangePoints(List<int> rawChangePointIndexes, int totalSampleCount)
         {
