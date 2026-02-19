@@ -4,6 +4,7 @@ using Analyzer_Service.Models.Interface.Algorithms;
 using Analyzer_Service.Models.Interface.Algorithms.Clustering;
 using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
+using Analyzer_Service.Models.Interface.Analyze;
 using Analyzer_Service.Models.Ro.Algorithms;
 using Microsoft.AspNetCore.Mvc;
 
@@ -17,7 +18,7 @@ namespace Analyzer_Service.Controllers
         private readonly ISegmentClassificationService _segmentClassifier;
         private readonly IHistoricalAnomalySimilarityService _historicalSimilarityService;
         private readonly IFlightPhaseAnalysisService _phaseAnalysis;
-
+        private readonly IAnalyzeServices _analyzeServices;
 
         private readonly IFlightPhaseDetector _flightPhaseDetector;
 
@@ -27,7 +28,8 @@ namespace Analyzer_Service.Controllers
             ISegmentClassificationService segmentClassifier,
             IHistoricalAnomalySimilarityService historicalSimilarityService,
             IFlightPhaseDetector flightPhaseDetector,
-            IFlightPhaseAnalysisService phaseAnalysis
+            IFlightPhaseAnalysisService phaseAnalysis,
+            IAnalyzeServices analyzeServices
 )
         {
             _flightCausality = flightCausalityService;
@@ -35,6 +37,7 @@ namespace Analyzer_Service.Controllers
             _historicalSimilarityService = historicalSimilarityService;
             _flightPhaseDetector = flightPhaseDetector;
             _phaseAnalysis = phaseAnalysis;
+            _analyzeServices = analyzeServices;
 
         }
 
@@ -107,6 +110,16 @@ namespace Analyzer_Service.Controllers
                 landing
             });
         }
+
+        [HttpGet("analyze-full-flight/{flightId}")]
+        public async Task<IActionResult> AnalyzeFullFlight(int flightId)
+        {
+            await _analyzeServices.Analyze(flightId);
+
+            return Ok("Analysis finished");
+        }
+
+
     }
 }
 

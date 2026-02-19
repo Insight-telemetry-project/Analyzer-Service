@@ -2,5 +2,6 @@
 {
     public interface IAnalyzeServices
     {
+        Task Analyze(int flightId);
     }
 }

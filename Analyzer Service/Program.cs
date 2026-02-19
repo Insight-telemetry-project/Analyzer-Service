@@ -8,6 +8,7 @@ using Analyzer_Service.Models.Interface.Algorithms.HistoricalAnomaly;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Pelt.Analyzer_Service.Models.Interface.Algorithms.Pelt;
 using Analyzer_Service.Models.Interface.Algorithms.Random_Forest;
+using Analyzer_Service.Models.Interface.Analyze;
 using Analyzer_Service.Models.Interface.Mongo;
 using Analyzer_Service.Services;
 using Analyzer_Service.Services.Algorithms;
@@ -16,6 +17,7 @@ using Analyzer_Service.Services.Algorithms.Ccm;
 using Analyzer_Service.Services.Algorithms.HistoricalAnomaly;
 using Analyzer_Service.Services.Algorithms.Pelt;
 using Analyzer_Service.Services.Algorithms.Random_Forest;
+using Analyzer_Service.Services.Analyze;
 using Analyzer_Service.Services.Mongo;
 using MathNet.Numerics;
 
@@ -62,6 +64,9 @@ builder.Services.AddSingleton<IFlightPhaseDetectorUtils, FlightPhaseDetectorUtil
 
 builder.Services.AddSingleton<ITuningSettingsFactory, TuningSettingsFactory>();
 builder.Services.AddTransient<IFlightPhaseAnalysisService, FlightPhaseAnalysisService>();
+
+builder.Services.AddTransient<IAnalyzeServices, AnalyzeServices>();
+
 
 
 
