@@ -119,6 +119,14 @@ namespace Analyzer_Service.Controllers
             return Ok("Analysis finished");
         }
 
+        [HttpGet("analyze-history/{flightId}")]
+        public async Task<IActionResult> AnalyzeHistory(int flightId)
+        {
+            await _analyzeServices.AnalyzeFlightHistoryById(flightId);
+
+            return Ok("Analysis finished");
+        }
+
 
     }
 }

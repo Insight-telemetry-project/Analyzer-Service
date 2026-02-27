@@ -3,5 +3,7 @@
     public interface IAnalyzeServices
     {
         Task Analyze(int flightId);
+        Task AnalyzeFlightHistoryById(int flightId);
+
     }
 }

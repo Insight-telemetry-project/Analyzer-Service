@@ -27,6 +27,8 @@ namespace Analyzer_Service.Models.Interface.Mongo
         Task<long> GetFlightStartEpochSecondsAsync(int masterIndex);
 
         Task<double[]> GetParameterSeriesAsync(int masterIndex, string parameterName);
+        Task<List<int>> GetAllFlightNumbers();
+
 
     }
 }

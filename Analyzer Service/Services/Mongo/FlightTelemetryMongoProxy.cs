@@ -32,7 +32,17 @@ namespace Analyzer_Service.Services.Mongo
             _historicalAnomalies =database.GetCollection<HistoricalAnomalyRecord>(mongoSettings.CollectionHistoricalAnomalies);
 
         }
+        public async Task<List<int>> GetAllFlightNumbers()
+        {
+            IAsyncCursor<int> cursor = await _telemetryFlightData
+                .DistinctAsync(
+                    flight => flight.MasterIndex,
+                    FilterDefinition<TelemetryFlightData>.Empty);
 
+            List<int> flightNumbers = await cursor.ToListAsync();
+
+            return flightNumbers;
+        }
 
         public async Task<IAsyncCursor<TelemetrySensorFields>> GetCursorFromFieldsAsync(int masterIndex)
         {
