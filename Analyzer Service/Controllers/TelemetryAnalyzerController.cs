@@ -127,7 +127,11 @@ namespace Analyzer_Service.Controllers
             return Ok("Analysis finished");
         }
 
-
+        [HttpGet("test/{flightId}")]
+        public async Task<List<long>> AnalyzeFullFlight2(int flightId)
+        {
+            return await _analyzeServices.Analyze(flightId);
+        }
     }
 }
 
