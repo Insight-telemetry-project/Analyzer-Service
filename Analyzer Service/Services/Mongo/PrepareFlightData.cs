@@ -8,6 +8,7 @@ public class PrepareFlightData : IPrepareFlightData
 
     public PrepareFlightData(IFlightTelemetryMongoProxy telemetryMongo)
     {
+<<<<<<< Updated upstream
         _telemetryMongo = telemetryMongo;
     }
 
@@ -26,6 +27,24 @@ public class PrepareFlightData : IPrepareFlightData
         await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable())
         {
             if (record.Fields.TryGetValue(fieldName, out double val))
+=======
+        private readonly IFlightTelemetryMongoProxy _telemetryMongoProxy; // Discussion: rename: generic name _telemetryMongo
+
+        public PrepareFlightData(IFlightTelemetryMongoProxy telemetryMongoProxy)
+        {
+            _telemetryMongoProxy = telemetryMongoProxy;
+        }
+
+        public async Task<SignalSeries> PrepareFlightDataAsync(int masterIndex, string xParameter, string yParameter)
+        {
+            IAsyncCursor<TelemetrySensorFields> cursor = await _telemetryMongoProxy.GetCursorFromFieldsAsync(masterIndex);
+
+            List<double> xSeries = new List<double>();
+            List<double> ySeries = new List<double>();
+
+            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable()) // Discussion: is it correct, using await foreach here?
+                                                                                       // Dicussion: going through all the frames in the flight here manually, can do it with mongo queries, aggregation pipeline
+>>>>>>> Stashed changes
             {
                 values.Add(val);
             }
@@ -46,9 +65,18 @@ public class PrepareFlightData : IPrepareFlightData
 
         for (int index = 0; index < allPoints.Count; index++)
         {
+<<<<<<< Updated upstream
             HistoricalAnomalyRecord record = allPoints[index];
 
             if (record.ParameterName == parameterName)
+=======
+            IAsyncCursor<TelemetrySensorFields> cursor =
+                await _telemetryMongoProxy.GetCursorFromFieldsAsync(masterIndex);
+
+            List<double> ySeries = new List<double>(); // Discussion: meaningful names?
+
+            await foreach (TelemetrySensorFields record in cursor.ToAsyncEnumerable()) // Discussion: same as PrepareFlightDataAsync
+>>>>>>> Stashed changes
             {
                 filtered.Add(record);
             }

@@ -43,9 +43,9 @@ builder.Services.AddSingleton<IChangePointDetectionService, ChangePointDetection
 builder.Services.AddSingleton<ISignalPreprocessor, SignalPreprocessor>();
 builder.Services.AddSingleton<IPeltAlgorithm, PeltAlgorithm>();
 
-builder.Services.AddSingleton<IRbfKernelCost, RbfKernelCost>();
+//builder.Services.AddSingleton<IRbfKernelCost, RbfKernelCost>();
 
-//builder.Services.AddSingleton<IRbfKernelCost, L2Cost>();
+builder.Services.AddSingleton<IRbfKernelCost, L2Cost>();
 
 builder.Services.AddSingleton<ISegmentClassificationService, SegmentClassificationService>();
 builder.Services.AddSingleton<ISignalProcessingUtility, SignalProcessingUtility>();
